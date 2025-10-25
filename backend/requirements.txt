@@ -1,9 +1,11 @@
-# backend/requirements.txt
+# backend/requirements.txt - VERSÃO CORRIGIDA PARA RENDER (Pydantic Downgrade)
 
 fastapi==0.111.0
 uvicorn==0.30.1
 gunicorn==22.0.0
-pydantic==2.7.4
+
+# CORREÇÃO CRÍTICA: Downgrade do Pydantic para evitar erro de sistema de arquivos Read-only
+pydantic==2.6.0 
 
 # Dependências geoespaciais críticas
 fiona==1.9.6
@@ -15,10 +17,4 @@ earthengine-api==0.1.419
 pystac-client==0.7.2
 httpx==0.27.0
 python-dotenv==1.0.1
-psycopg2-binary # Se você for usar um banco de dados Postgres no Railway (melhor que SQLite)
-
-# Dependência IA
-openai==1.30.4 
-
-# Se você usar ferramentas de deploy específicas
-# python-multipart==0.0.9
+openai==1.30.4
