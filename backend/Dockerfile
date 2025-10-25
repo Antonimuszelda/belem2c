@@ -25,4 +25,4 @@ COPY . .
 
 # 6. COMANDO DE INICIALIZAÇÃO
 # Define o comando que o Railway deve rodar para iniciar o FastAPI.
-CMD ["/bin/bash", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
