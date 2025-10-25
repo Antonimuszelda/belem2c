@@ -1,0 +1,98 @@
+
+
+/* Seu CSS (no final do arquivo index.css) */
+
+/* 🎯 REGRAS CRÍTICAS PARA O MAPA EM TELA CHEIA */
+
+/* 1. Remove as margens e paddings padrão do navegador no corpo da página. */
+body, html {
+    margin: 0;
+    padding: 0;
+    /* Define largura e altura para 100% da viewport (tela visível) */
+    width: 100vw; 
+    height: 100vh;
+    overflow: hidden; /* CRÍTICO: Evita barras de rolagem que atrapalham o Cesium */
+    /* Garante que o fundo não esconda o Cesium */
+    background-color: transparent;
+}
+
+/* 2. Garante que o elemento raiz do React (#root) ocupe 100% do corpo. */
+#root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    /* Adiciona flexbox para layout, garantindo que ele preencha a tela */
+    display: flex; 
+}
+
+/* Se você ainda tiver o código padrão do Vite/React, ele pode vir aqui em cima. */
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
