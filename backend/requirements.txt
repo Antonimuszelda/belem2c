@@ -1,8 +1,24 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-earthengine-api==0.1.400
+# backend/requirements.txt
+
+fastapi==0.111.0
+uvicorn==0.30.1
+gunicorn==22.0.0
+pydantic==2.7.4
+
+# Dependências geoespaciais críticas
 fiona==1.9.6
 shapely==2.0.4
 geojson==3.1.0
-python-multipart==0.0.6
+
+# Dependências GEE/STAC
+earthengine-api==0.1.419
+pystac-client==0.7.2
+httpx==0.27.0
+python-dotenv==1.0.1
+psycopg2-binary # Se você for usar um banco de dados Postgres no Railway (melhor que SQLite)
+
+# Dependência IA
+openai==1.30.4 
+
+# Se você usar ferramentas de deploy específicas
+# python-multipart==0.0.9
