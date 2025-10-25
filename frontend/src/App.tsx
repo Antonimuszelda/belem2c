@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap, GeoJSON, ZoomControl } from 'react-leaflet';
-import L, { Map, FeatureGroup, Layer, GeoJSON as LeafletGeoJSON, type StyleFunction } from 'leaflet'; // Importações adicionadas
+import L, { Map, FeatureGroup, GeoJSON as LeafletGeoJSON, type StyleFunction } from 'leaflet'; // Importações ajustadas // Importações adicionadas
 import 'leaflet-draw';
 import 'leaflet/dist/leaflet.css'; // Importa CSS base do Leaflet
 import 'leaflet-draw/dist/leaflet.draw.css'; // Importa CSS do Leaflet Draw
