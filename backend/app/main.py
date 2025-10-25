@@ -15,10 +15,9 @@ from shapely.geometry import shape, Polygon, mapping # type: ignore
 
 
 # --- ID do Projeto GEE ---
-GEE_PROJECT_ID = 'gen-lang-client-0502761424' # Verifique se este ID está correto no seu ambiente
+GEE_PROJECT_ID = 'gen-lang-client-0502761424'
 
 # --- Caminhos para os arquivos GeoJSON ---
-# Assume que este script está em backend/app/ e o data está em backend/data/
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
 GEOJSON_FILES = [
     'geopackages_n_setorizadas.json',
@@ -29,7 +28,6 @@ GEOJSON_FILES = [
 
 # --- Inicialização do GEE e Tratamento de Erro ---
 try:
-    # Tente inicializar o GEE
     ee.Initialize(project=GEE_PROJECT_ID)
     EE_INITIALIZED = True
 except Exception as e:
@@ -65,7 +63,7 @@ app.add_middleware(
 
 
 # =========================================================
-# 🎯 SCHEMAS DE REQUISIÇÃO
+# 🎯 SCHEMAS, ENDPOINTS E LÓGICA (Sem alterações estruturais)
 # =========================================================
 class Coordinate(BaseModel):
     lat: float
@@ -79,10 +77,6 @@ class SatelliteRequest(PolygonRequest):
     end_date: str = datetime.date.today().isoformat()
     satellite: str
 
-
-# =========================================================
-# 🎯 ENDPOINTS DE SAÚDE E BASE
-# =========================================================
 @app.get("/health")
 def health_check():
     """Verifica o status da API e do GEE."""
@@ -93,45 +87,33 @@ def health_check():
         "message": "API está rodando."
     }
 
-
-# =========================================================
-# 🎯 ENDPOINT GEOJSON (Censo/Vetorial)
-# =========================================================
 @app.post("/censo_analysis")
 def censo_analysis(request: PolygonRequest):
-    """
-    Busca setores censitários ou outras feições GeoJSON que intersectam o polígono fornecido.
-    """
+    """Busca setores censitários ou outras feições GeoJSON."""
     if not request.polygon or len(request.polygon) < 3:
         raise HTTPException(status_code=400, detail="Polígono inválido. Mínimo de 3 coordenadas.")
 
     try:
         coords_list = [(c.lng, c.lat) for c in request.polygon]
         user_polygon = Polygon(coords_list)
-        
         all_filtered_features: List[Dict[str, Any]] = []
 
-        # Itera sobre a lista de arquivos GeoJSON
         for filename in GEOJSON_FILES:
             filepath = os.path.join(DATA_DIR, filename)
             if not os.path.exists(filepath):
                 continue
-
             try:
                 with fiona.open(filepath) as source:
                     for feature in source:
                         feature_shape = shape(feature['geometry'])
-                        
                         if user_polygon.intersects(feature_shape):
                             feature_data = {
                                 "type": "Feature",
                                 "geometry": mapping(feature_shape),
                                 "properties": feature['properties']
                             }
-                            # Adiciona a propriedade 'source_file' para rastreio no frontend
                             feature_data['properties']['source_file'] = filename 
                             all_filtered_features.append(feature_data)
-
             except fiona.errors.DriverError:
                 continue 
             except Exception as file_e:
@@ -140,7 +122,6 @@ def censo_analysis(request: PolygonRequest):
 
         if not all_filtered_features:
             return FeatureCollection([])
-
         return FeatureCollection(all_filtered_features)
 
     except ValueError as ve:
@@ -150,7 +131,3 @@ def censo_analysis(request: PolygonRequest):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Erro interno ao processar GeoJSON: {type(e).__name__}: {str(e)}")
-
-# =========================================================
-# FIM DO ARQUIVO - NENHUM CÓDIGO APÓS ESTE PONTO PARA O GUNICORN
-# =========================================================
