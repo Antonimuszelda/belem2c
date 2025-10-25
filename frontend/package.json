@@ -7,13 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "postinstall": "node node_modules/resium/copy-cesium-assets.js" 
+    "preview": "vite preview"
   },
   "dependencies": {
     "@google/earthengine": "^1.6.11",
-    "@openglobus/og": "github:openglobus/openglobus",
-    "@types/cesium": "^1.67.14",
     "@types/geojson": "^7946.0.16",
     "@types/react-map-gl": "^6.1.7",
     "axios": "^1.12.2",
@@ -22,7 +19,6 @@
     "leaflet-draw": "^1.0.4",
     "leaflet-draw-drag": "^0.4.8",
     "og": "^0.0.2",
-    "postinstall": "^0.11.2",
     "react": "^19.2.0",
     "react-dom": "^19.1.1",
     "react-leaflet": "^5.0.0",
