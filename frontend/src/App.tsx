@@ -481,7 +481,7 @@ const App: React.FC = () => {
                     <TileLayer
                        attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" // <-- Solução
-                        zIndex={0}
+                    zIndex={0}
                     />
                      <ZoomControl position="topright" />
                     <DrawControl onPolygonCreated={handlePolygonCreated} clearRef={clearDrawRef} />
