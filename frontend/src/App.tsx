@@ -479,8 +479,8 @@ const App: React.FC = () => {
                 >
                     {/* CRITICAL FIX 2: Trocado Stadia Maps (401) por OpenStreetMap (Grátis) */}
                     <TileLayer
-                        attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                       attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" // <-- Solução
                         zIndex={0}
                     />
                      <ZoomControl position="topright" />
