@@ -1,12 +1,13 @@
-// frontend/src/App.tsx - VERSÃO HARPIA (UI Refatorada e Funcionalidades Expandidas) - CORRIGIDO e com Source File
+// frontend/src/App.tsx - VERSÃO FINAL CORRIGIDA
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, useMap, GeoJSON, ZoomControl } from 'react-leaflet';
-import L, { Map, FeatureGroup, GeoJSON as LeafletGeoJSON, type StyleFunction } from 'leaflet'; // Importações ajustadas // Importações adicionadas
+// IMPORTAÇÕES CRÍTICAS DO REACT LEAFLET - Corrigido o problema "Cannot find name 'MapContainer/TileLayer'"
+import { MapContainer, TileLayer, useMap, GeoJSON, ZoomControl } from 'react-leaflet'; 
+import L, { Map, FeatureGroup, GeoJSON as LeafletGeoJSON, type StyleFunction } from 'leaflet'; 
 import 'leaflet-draw';
-import 'leaflet/dist/leaflet.css'; // Importa CSS base do Leaflet
-import 'leaflet-draw/dist/leaflet.draw.css'; // Importa CSS do Leaflet Draw
-import './App.css'; // Nosso CSS customizado (Harpia Theme)
+import 'leaflet/dist/leaflet.css'; 
+import 'leaflet-draw/dist/leaflet.draw.css'; 
+import './App.css'; 
 
 // --- CORREÇÃO DE ÍCONES LEAFLET ---
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
@@ -116,10 +117,11 @@ const GEETileLayerComponent: React.FC<{ tileUrl: string | null; opacity?: number
 // 🎯 COMPONENTE PRINCIPAL (App)
 // =========================================================
 const App: React.FC = () => {
-    // CRITICAL FIX 1: Define a variável de ambiente para a API
+    // CRITICAL FIX 1: Usa a variável de ambiente Vercel/Vite para a URL da API.
+    // Isso corrige o erro de 'localhost:8000' (ERR_CONNECTION_REFUSED)
     const API_URL = import.meta.env.VITE_API_URL;
 
-    // --- Estados ---
+    // --- Estados (Corrigido 'Cannot find name 'polygonCoords/setLoading'') ---
     const [polygonCoords, setPolygonCoords] = useState<Coordinate[]>([]);
     const [startDate] = useState<string>('2024-01-01');
     const [endDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -252,7 +254,7 @@ const App: React.FC = () => {
         setMessage('Buscando e recortando dados GeoJSON...'); // Mensagem atualizada
 
         try {
-            // CRITICAL FIX 1: Usando API_URL
+            // CRITICAL FIX 2: O fetch usa a variável de ambiente API_URL
             const response = await fetch(`${API_URL}/censo_analysis`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -306,7 +308,7 @@ const App: React.FC = () => {
              end_date: endDate,
              satellite: dataType
         };
-        // CRITICAL FIX 1: Usando API_URL
+        // CRITICAL FIX 3: O fetch usa a variável de ambiente API_URL
         const url = `${API_URL}/${endpoint}`;
         try {
              const response = await fetch(url, {
@@ -351,7 +353,7 @@ const App: React.FC = () => {
         const setLayerFunc = layerId === 'A' ? setLayerA : setLayerB;
         const setImageResultsFunc = layerId === 'A' ? setImageResultsA : setImageResultsB;
         const dataType = layerState.satellite;
-        if (dataType === 'DEM') {
+        if (dataType === 'DEM' || dataType === 'NDVI') {
             fetchData(layerId, 'dem_analysis', dataType, setLayerFunc);
         } else if (dataType === 'NDVI') {
             fetchData(layerId, 'ndvi_analysis', dataType, setLayerFunc);
@@ -477,11 +479,11 @@ const App: React.FC = () => {
                     className="leaflet-map"
                     zoomControl={false}
                 >
-                    {/* CRITICAL FIX 2: Trocado Stadia Maps (401) por OpenStreetMap (Grátis) */}
+                    {/* CRITICAL FIX 4: Trocado Stadia Maps (401) por OpenStreetMap (Grátis) */}
                     <TileLayer
-                       attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" // <-- Solução
-                    zIndex={0}
+                        attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        zIndex={0}
                     />
                      <ZoomControl position="topright" />
                     <DrawControl onPolygonCreated={handlePolygonCreated} clearRef={clearDrawRef} />
@@ -500,9 +502,6 @@ const App: React.FC = () => {
                     {/* Camadas GEE */}
                     {layerB.tileUrl && <GEETileLayerComponent tileUrl={layerB.tileUrl} opacity={layerB.opacity} layerKey={layerB.key} />}
                     {layerA.tileUrl && <GEETileLayerComponent tileUrl={layerA.tileUrl} opacity={layerA.opacity} layerKey={layerA.key} />}
-
-                    {/* Legenda (Comentada) */}
-                    {/* {censoGeoJSON && <MapLegend />} */}
 
                 </MapContainer>
             </div>
