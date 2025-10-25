@@ -116,6 +116,9 @@ const GEETileLayerComponent: React.FC<{ tileUrl: string | null; opacity?: number
 // 🎯 COMPONENTE PRINCIPAL (App)
 // =========================================================
 const App: React.FC = () => {
+    // CRITICAL FIX 1: Define a variável de ambiente para a API
+    const API_URL = import.meta.env.VITE_API_URL;
+
     // --- Estados ---
     const [polygonCoords, setPolygonCoords] = useState<Coordinate[]>([]);
     const [startDate] = useState<string>('2024-01-01');
@@ -249,7 +252,8 @@ const App: React.FC = () => {
         setMessage('Buscando e recortando dados GeoJSON...'); // Mensagem atualizada
 
         try {
-            const response = await fetch('http://localhost:8000/censo_analysis', {
+            // CRITICAL FIX 1: Usando API_URL
+            const response = await fetch(`${API_URL}/censo_analysis`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ polygon: polygonCoords }),
@@ -270,7 +274,8 @@ const App: React.FC = () => {
                  setMessage(`${data.features.length} feições GeoJSON carregadas.`); // Mensagem atualizada
             }
         } catch (error: any) {
-            setMessage(`ERRO ao carregar dados GeoJSON: ${error.message}.`);
+            // Se falhar, o erro "Failed to fetch" (localhost) será capturado aqui
+            setMessage(`ERRO ao carregar dados GeoJSON: ${error.message}. Verifique o console para CORS/localhost.`);
             console.error('Erro detalhado:', error);
             setCensoGeoJSON(null);
         } finally {
@@ -282,7 +287,7 @@ const App: React.FC = () => {
     const censoLayerKey = `censo-${censoOpacity}`;
 
     // =========================================================
-    // 🎯 FUNÇÃO GENÉRICA PARA BUSCAR DADOS GEE - Sem alterações aqui
+    // 🎯 FUNÇÃO GENÉRICA PARA BUSCAR DADOS GEE - Corrigida a URL
     // =========================================================
     const fetchData = async (
         layerId: 'A' | 'B',
@@ -301,7 +306,8 @@ const App: React.FC = () => {
              end_date: endDate,
              satellite: dataType
         };
-        const url = `http://localhost:8000/${endpoint}`;
+        // CRITICAL FIX 1: Usando API_URL
+        const url = `${API_URL}/${endpoint}`;
         try {
              const response = await fetch(url, {
                 method: 'POST',
@@ -471,9 +477,10 @@ const App: React.FC = () => {
                     className="leaflet-map"
                     zoomControl={false}
                 >
+                    {/* CRITICAL FIX 2: Trocado Stadia Maps (401) por OpenStreetMap (Grátis) */}
                     <TileLayer
-                        attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
-                        url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
+                        attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         zIndex={0}
                     />
                      <ZoomControl position="topright" />
