@@ -7,12 +7,11 @@ export default defineConfig({
   plugins: [react()],
   
   // =========================================================
-  // ✅ CORREÇÃO CRÍTICA: Adiciona a base relativa para o deploy Vercel
+  // ✅ CORREÇÃO CRÍTICA: ADICIONE ESTA LINHA
   base: './', 
   // =========================================================
   
   optimizeDeps: {
-    // O bloco optimizeDeps deve ser corrigido:
     // Apenas mantenha as dependências do Leaflet que você realmente usa
     include: ['react-leaflet', 'leaflet', 'react-leaflet-draw', 'leaflet-draw'], 
   },
