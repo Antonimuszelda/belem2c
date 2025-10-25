@@ -50,7 +50,7 @@ except Exception as e:
 # =========================================================
 app = FastAPI(title="Harpia Geo-Analysis API")
 
-origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+origins = ["harp-iademo-production.up.railway.app, http://localhost:5173", "http://127.0.0.1:5173"]
 
 app.add_middleware(
     CORSMiddleware,
