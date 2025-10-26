@@ -1,28 +1,42 @@
-# 1. ESCOLHE A IMAGEM BASE: Versão Python otimizada
-FROM python:3.11-slim
+# --- STAGE 1: Build Stage (Instala dependências do SO) ---
+FROM python:3.11-slim as builder
 
-# 2. INSTALA DEPENDÊNCIAS DO SISTEMA (CRÍTICO para Fiona/Shapely)
-# 'apt-get' é o gerenciador de pacotes do sistema Linux.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# Define a variável de ambiente para evitar interação com o usuário durante a instalação
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instala as dependências de sistema para GDAL/GEOS (essenciais para Fiona e Shapely)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    build-essential \
     gdal-bin \
     libgdal-dev \
-    gcc && \
-    rm -rf /var/lib/apt/lists/*
+    libxml2-dev \
+    libproj-dev \
+    python3-gdal \
+    # Limpa o cache para reduzir o tamanho da imagem
+    && rm -rf /var/lib/apt/lists/*
 
-# 3. DEFINE O DIRETÓRIO DE TRABALHO
+# Configura o diretório de trabalho
 WORKDIR /app
 
-# 4. COPIA E INSTALA DEPENDÊNCIAS PYTHON
-# Copia o requirements.txt (já que ele é leve)
+# Copia o requirements.txt e instala as dependências Python
 COPY requirements.txt .
-# Instala as libs Python. Com o GDAL instalado acima, Fiona/Shapely funcionam.
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. COPIA O CÓDIGO DA APLICAÇÃO E ARQUIVOS
-# Copia todo o restante do conteúdo da pasta 'backend' para o container.
+# --- STAGE 2: Production Stage (Imagem final mais leve) ---
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copia as bibliotecas geoespaciais e binários GDAL/GEOS da builder stage
+COPY --from=builder /usr/lib/ /usr/lib/
+COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
+
+# Copia o código da aplicação
 COPY . .
 
-# 6. COMANDO DE INICIALIZAÇÃO
-# Define o comando que o Railway deve rodar para iniciar o FastAPI.
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
+# Comando de inicialização CRÍTICO para Railway/Docker
+# O Gunicorn usa a variável de ambiente $PORT fornecida pelo Railway
+# Ele é mais robusto que o Uvicorn direto.
+CMD exec gunicorn main:app --bind 0.0.0.0:$PORT --workers 4 --worker-class uvicorn.workers.UvicornWorker --timeout 120
