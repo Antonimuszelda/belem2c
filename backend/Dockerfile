@@ -39,4 +39,6 @@ COPY . .
 # Comando de inicialização CRÍTICO para Railway/Docker
 # O Gunicorn usa a variável de ambiente $PORT fornecida pelo Railway
 # Ele é mais robusto que o Uvicorn direto.
-CMD exec gunicorn main:app --bind 0.0.0.0:$PORT --workers 4 --worker-class uvicorn.workers.UvicornWorker --timeout 120
+# O Gunicorn precisa do caminho completo do módulo Python: 'nome_da_pasta.nome_do_arquivo:nome_da_app'
+# Se main.py estiver dentro de uma pasta 'app', use 'app.main:app'
+CMD exec gunicorn app.main:app --bind 0.0.0.0:$PORT --workers 4 --worker-class uvicorn.workers.UvicornWorker --timeout 120
