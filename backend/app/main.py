@@ -99,7 +99,7 @@ except Exception as e:
 app = FastAPI(title="HARP-IA GeoProcessor API (Sem IA)", version="1.2.0")
 
 origins = [
-    "https://harp-ia-demo-zaib.vercel.app/", # Sua URL Vercel
+    "https://harp-ia-demo-vovn-g0epl4hsg-antonimuszeldas-projects.vercel.app/", # Sua URL Vercel
     "http://localhost:3000", # Para dev local
     "http://localhost:5173",
 ]
