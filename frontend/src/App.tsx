@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap, GeoJSON, ZoomControl } from 'react-leaflet'; 
 import L, { Map, FeatureGroup, GeoJSON as LeafletGeoJSON, type StyleFunction } from 'leaflet'; 
 import 'leaflet-draw';
-import 'leaflet-draw/dist/leaflet.draw-src.js';
+//import 'leaflet-draw/dist/leaflet.draw-src.js';
 import 'leaflet/dist/leaflet.css'; 
 import 'leaflet-draw/dist/leaflet.draw.css'; 
 import './App.css'; 

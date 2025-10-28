@@ -101,6 +101,7 @@ app = FastAPI(title="HARP-IA GeoProcessor API (Sem IA)", version="1.2.0")
 origins = [
     "https://harp-ia-demo-zaib.vercel.app/", # Sua URL Vercel
     "http://localhost:3000", # Para dev local
+    "http://localhost:5173",
 ]
 app.add_middleware(
     CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
@@ -128,7 +129,7 @@ def health_check():
     return {"status": "ok", "gee_initialized": EE_INITIALIZED}
 
 # --- Endpoint GeoJSON (Favelas/Comunidades) ---
-@app.post("/process_geojson", response_model=FeatureCollection)
+@app.post("/process_geojson", response_model=dict)
 async def process_geojson(request: GeoJSONRequest):
     # ... (lógica fiona/shapely otimizada - INALTERADA) ...
     try:
@@ -238,13 +239,13 @@ async def get_dem_data(request: GeoJSONRequest):
         dem = ee.Image('USGS/SRTMGL1_003').clip(ee_geom)
         stats = dem.reduceRegion(reducer=ee.Reducer.minMax(), geometry=ee_geom, scale=90, maxPixels=1e9).getInfo()
         min_el, max_el = stats.get('elevation_min'), stats.get('elevation_max')
-        vis_params = {'min': min_el if min_el is not None else 0, 'max': max_el if max_el is not None else 3000}
+        vis_params = {'min': min_el if min_el is not None else 0, 'max': max_el if max_el is not None else 3000, 'palette': ['006837', '1a9850', '66bd63', 'a6d96a', 'd9ef8b', 'fee08b', 'fdae61', 'f46d43', 'd73027', 'a50026']}
         map_info = dem.getMapId(vis_params)
         return {"tileUrl": map_info['tile_fetcher'].url_format, "min_elevation": min_el, "max_elevation": max_el}
     except Exception as e: traceback.print_exc(); raise HTTPException(status_code=500, detail=f"Erro GEE DEM: {e}")
 
 # --- Endpoint Ilhas de Calor (GEE Real) ---
-@app.post("/heat_island_analysis", response_model=FeatureCollection)
+@app.post("/heat_island_analysis", response_model=dict)
 async def heat_island_analysis(request: GeoJSONRequest):
     if not EE_INITIALIZED: raise HTTPException(status_code=503, detail="GEE não inicializado.")
     try:
