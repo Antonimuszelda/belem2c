@@ -102,6 +102,7 @@ origins = [
     "https://harp-ia-demo-vovn-g0epl4hsg-antonimuszeldas-projects.vercel.app/", # Sua URL Vercel
     "http://localhost:3000", # Para dev local
     "http://localhost:5173",
+    "https://harp-ia-demo-vovn.vercel.app/",
 ]
 app.add_middleware(
     CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
