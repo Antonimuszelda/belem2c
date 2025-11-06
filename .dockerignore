@@ -1,0 +1,40 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Frontend (não precisa no backend)
+frontend/
+
+# Documentation
+*.md
+docs/
+
+# Tests
+tests/
+__tests__/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python cache na raiz
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# Railway
+railway.toml
