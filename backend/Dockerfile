@@ -44,11 +44,8 @@ RUN mkdir -p uploads data
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8000}/health').read()" || exit 1
-
 CMD exec gunicorn app.main:app \
-    --bind 0.0.0.0:${PORT:-8000} \
+    --bind 0.0.0.0:$PORT \
     --workers 4 \
     --worker-class uvicorn.workers.UvicornWorker \
     --timeout 120 \
