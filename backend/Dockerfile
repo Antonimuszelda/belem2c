@@ -40,10 +40,8 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
 COPY . .
 
-RUN chmod +x start.sh
-
 RUN mkdir -p uploads data
 
 EXPOSE 8000
 
-CMD ["./start.sh"]
+CMD ["python", "start.py"]
