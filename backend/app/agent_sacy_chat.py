@@ -164,6 +164,8 @@ class SacyChatAgent:
     
     def chat(self, user_message: str) -> str:
         """Processa mensagem do usuário com contexto usando ADK."""
+        import time
+        
         context_summary = self.get_context_summary()
         
         # Montar prompt completo com system instruction e contexto
@@ -177,47 +179,64 @@ class SacyChatAgent:
 {user_message}
 """
         
-        try:
-            # Usar ADK para gerar resposta
-            # Adicionar mensagem do usuário ao histórico
-            user_content = types.Content(
-                role="user",
-                parts=[types.Part(text=full_prompt)]
-            )
-            
-            # Gerar resposta usando ADK
-            response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp',
-                contents=[user_content] + self.chat_history,
-                config=types.GenerateContentConfig(
-                    temperature=0.7,
-                    top_p=0.95,
-                    top_k=40,
-                    max_output_tokens=2048,
+        # Retry com backoff exponencial para rate limiting
+        max_retries = 3
+        base_delay = 1  # segundos
+        
+        for attempt in range(max_retries):
+            try:
+                # Usar ADK para gerar resposta
+                # Adicionar mensagem do usuário ao histórico
+                user_content = types.Content(
+                    role="user",
+                    parts=[types.Part(text=full_prompt)]
                 )
-            )
-            
-            # Extrair texto da resposta
-            response_text = response.text
-            
-            # Atualizar histórico
-            self.chat_history.append(user_content)
-            self.chat_history.append(types.Content(
-                role="model",
-                parts=[types.Part(text=response_text)]
-            ))
-            
-            # Manter histórico limitado (últimas 20 mensagens)
-            if len(self.chat_history) > 20:
-                self.chat_history = self.chat_history[-20:]
-            
-            return response_text
-            
-        except Exception as e:
-            error_msg = str(e)
-            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                return "⏳ **Sistema temporariamente ocupado.** Por favor, aguarde alguns segundos e tente novamente. O ADK está processando muitas requisições."
-            return f"❌ **ERRO:** {error_msg}\n\nVerifique sua configuração."
+                
+                # Gerar resposta usando ADK
+                response = self.client.models.generate_content(
+                    model='gemini-2.0-flash-exp',
+                    contents=[user_content] + self.chat_history,
+                    config=types.GenerateContentConfig(
+                        temperature=0.7,
+                        top_p=0.95,
+                        top_k=40,
+                        max_output_tokens=2048,
+                    )
+                )
+                
+                # Extrair texto da resposta
+                response_text = response.text
+                
+                # Atualizar histórico
+                self.chat_history.append(user_content)
+                self.chat_history.append(types.Content(
+                    role="model",
+                    parts=[types.Part(text=response_text)]
+                ))
+                
+                # Manter histórico limitado (últimas 20 mensagens)
+                if len(self.chat_history) > 20:
+                    self.chat_history = self.chat_history[-20:]
+                
+                return response_text
+                
+            except Exception as e:
+                error_msg = str(e)
+                
+                # Se for erro de rate limiting e ainda tem tentativas
+                if ("429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg) and attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)  # Backoff exponencial: 1s, 2s, 4s
+                    print(f"⏳ Rate limit atingido. Aguardando {delay}s antes de tentar novamente...")
+                    time.sleep(delay)
+                    continue
+                
+                # Se esgotou as tentativas ou é outro erro
+                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                    return "⏳ **Sistema muito ocupado.** Aguarde alguns segundos e tente novamente."
+                
+                return f"❌ **ERRO:** {error_msg}\n\nVerifique sua configuração."
+        
+        return "⏳ **Sistema muito ocupado.** Por favor, aguarde e tente novamente."
 
 # Instância global
 print("🔄 Tentando inicializar Sacy Chat Agent...")
