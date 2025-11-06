@@ -244,18 +244,126 @@ class SacyChatAgent:
                 
                 # Se for erro de rate limiting e ainda tem tentativas
                 if ("429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg) and attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt)  # Backoff exponencial: 1s, 2s, 4s
+                    delay = base_delay * (2 ** attempt)  # Backoff exponencial: 3s, 6s, 12s
                     print(f"⏳ Rate limit atingido. Aguardando {delay}s antes de tentar novamente...")
                     time.sleep(delay)
                     continue
                 
-                # Se esgotou as tentativas ou é outro erro
+                # Se esgotou as tentativas com rate limiting, usar fallback inteligente
                 if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                    return "⏳ **Sistema muito ocupado.** Aguarde alguns segundos e tente novamente."
+                    return self._generate_smart_fallback(user_message)
                 
-                return f"❌ **ERRO:** {error_msg}\n\nVerifique sua configuração."
+                # Para outros erros, também usar fallback
+                print(f"❌ Erro no ADK: {error_msg}")
+                return self._generate_smart_fallback(user_message)
         
-        return "⏳ **Sistema muito ocupado.** Por favor, aguarde e tente novamente."
+        # Se chegou aqui, todas as tentativas falharam
+        return self._generate_smart_fallback(user_message)
+    
+    def _generate_smart_fallback(self, user_message: str) -> str:
+        """Gera resposta contextual inteligente quando ADK não está disponível."""
+        import random
+        
+        msg_lower = user_message.lower()
+        
+        # Detectar tipo de pergunta e gerar resposta apropriada
+        
+        # Saudações
+        if any(word in msg_lower for word in ['oi', 'olá', 'ola', 'hey', 'bom dia', 'boa tarde', 'boa noite']):
+            respostas = [
+                "E aí! 👋 Sou a JATAÍ, sua copiloto ambiental. Como posso te ajudar?",
+                "Olá! 🐝 JATAÍ aqui pra te ajudar com análise ambiental. O que você precisa?",
+                "Fala! Sou a JATAÍ. Bora analisar uns dados ambientais?",
+            ]
+            return random.choice(respostas)
+        
+        # Perguntas sobre temperatura/calor
+        if any(word in msg_lower for word in ['temperatura', 'calor', 'quente', 'lst', 'ilha de calor']):
+            if self.context_data.get('polygon'):
+                return """Massa! Pra analisar temperatura, eu preciso que você:
+
+1. **Desenhe uma área no mapa** (se ainda não fez)
+2. **Selecione o período** que quer analisar
+3. Daí eu busco dados de satélite LST (temperatura de superfície)
+
+Os dados mostram:
+- 🌡️ Temperatura média da área
+- 🔥 Pontos mais quentes (ilhas de calor urbanas)
+- 🌳 Áreas mais frescas (vegetação, água)
+
+Já tem uma área desenhada? Me diz o período que quer analisar!"""
+            else:
+                return """Opa! Pra ver temperatura, você precisa:
+
+1. **Desenhar uma área no mapa** (clica nos botões de desenho)
+2. **Escolher o período** de análise
+3. Daí eu busco dados de satélite pra ti!
+
+Bora lá? 🗺️"""
+        
+        # Perguntas sobre vegetação
+        if any(word in msg_lower for word in ['vegetação', 'vegetacao', 'verde', 'ndvi', 'floresta', 'árvore', 'arvore']):
+            return """Tranquilo! Pra analisar vegetação, eu uso o índice NDVI dos satélites. 🌳
+
+**O que o NDVI mostra:**
+- 🟢 **0.6 a 1.0**: Vegetação densa (florestas, áreas bem verdes)
+- 🟡 **0.3 a 0.6**: Vegetação moderada (campos, agricultura)
+- 🟤 **0 a 0.3**: Solo exposto, área urbana
+
+Desenha uma área no mapa e me diz o período que você quer analisar!"""
+        
+        # Perguntas sobre água
+        if any(word in msg_lower for word in ['água', 'agua', 'rio', 'lago', 'ndwi', 'alagamento', 'inundação', 'inundacao']):
+            return """Show! Pra detectar água, eu uso índice NDWI e dados de radar. 💧
+
+**Consigo identificar:**
+- 🌊 Rios, lagos e corpos d'água
+- 💦 Áreas alagadas
+- 🏞️ Zonas úmidas
+
+Desenha a região no mapa e escolhe o período de análise que eu te mostro!"""
+        
+        # Perguntas sobre como usar
+        if any(word in msg_lower for word in ['como', 'usar', 'funciona', 'ajuda', 'help']):
+            return """É simples! 😊
+
+**Passo a passo:**
+1. 🗺️ Desenha uma área no mapa (botões à esquerda)
+2. 📅 Escolhe o período de análise
+3. 🛰️ Seleciona que tipo de dado quer ver (temperatura, vegetação, água)
+4. 💬 Me pergunta o que você quer saber!
+
+**Exemplos do que posso fazer:**
+- "Qual a temperatura média dessa área?"
+- "Tem vegetação aqui?"
+- "Essa região alaga?"
+- "Mostra os dados de satélite"
+
+Bora começar? 🚀"""
+        
+        # Contexto disponível
+        if self.context_data.get('polygon'):
+            context_summary = self.get_context_summary()
+            return f"""Legal! Tô vendo que você já tem dados carregados. 📊
+
+{context_summary}
+
+Me pergunta o que você quer saber sobre essa área! Por exemplo:
+- "Qual a temperatura média?"
+- "Tem muita vegetação?"
+- "Mostra os dados"
+
+Tô aqui pra ajudar! 🐝"""
+        
+        # Resposta genérica amigável
+        respostas_genericas = [
+            "Interessante! Pra eu te dar uma análise completa, desenha uma área no mapa e me diz o período que quer analisar. 🗺️",
+            "Massa! Bora trabalhar com dados? Desenha uma região no mapa e escolhe o período de análise! 📊",
+            "Show! Pra começar, você precisa desenhar uma área no mapa. Daí eu busco os dados de satélite pra ti! 🛰️",
+            "Egua, que legal! Desenha uma área no mapa e me conta que tipo de análise você quer fazer (temperatura, vegetação, água). 🌍",
+        ]
+        
+        return random.choice(respostas_genericas)
 
 # Instância global
 print("🔄 Tentando inicializar Sacy Chat Agent...")
