@@ -222,6 +222,10 @@ class SacyChatAgent:
                 # Extrair texto da resposta
                 response_text = response.text
                 
+                # Verificar se a resposta é válida
+                if response_text is None or not isinstance(response_text, str):
+                    raise ValueError("Resposta do modelo é None ou inválida")
+                
                 # Atualizar histórico
                 self.chat_history.append(user_content)
                 self.chat_history.append(types.Content(

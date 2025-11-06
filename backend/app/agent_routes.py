@@ -276,6 +276,10 @@ Responda à pergunta usando esses dados de forma natural e clara, SEM mencionar 
             # normalize slang before sending
             msg_norm = normalize_slang(request.message)
             response_text = sacy_chat_agent.chat(msg_norm)
+        
+        # Garantir que response_text é uma string válida
+        if response_text is None or not isinstance(response_text, str) or response_text.strip() == "":
+            response_text = "Desculpa, tive um problema ao processar sua mensagem. Tenta de novo?"
 
         # Aplicar dialetização paraense antes de retornar (compatível com client-side TTS)
         try:
@@ -318,6 +322,10 @@ async def chat_text_quick(request: ChatMessage):
         # normalize slang first
         msg_norm = normalize_slang(request.message)
         response_text = try_agent_chat(sacy_chat_agent, msg_norm)
+        
+        # Garantir que response_text é uma string válida
+        if response_text is None or not isinstance(response_text, str) or response_text.strip() == "":
+            response_text = "Desculpa, tive um problema ao processar sua mensagem. Tenta de novo?"
 
         # Dialetizar
         try:
