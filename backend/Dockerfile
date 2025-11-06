@@ -12,8 +12,9 @@ RUN apt-get update \
     libgdal-dev \
     libxml2-dev \
     libproj-dev \
+    libgeos-dev \
     python3-gdal \
-    # Limpa o cache para reduzir o tamanho da imagem
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Configura o diretório de trabalho
@@ -21,24 +22,50 @@ WORKDIR /app
 
 # Copia o requirements.txt e instala as dependências Python
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
 # --- STAGE 2: Production Stage (Imagem final mais leve) ---
 FROM python:3.11-slim
 
+# Variáveis de ambiente
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PORT=8000
+
+# Instala apenas as bibliotecas runtime necessárias (sem build tools)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    libgdal30 \
+    libgeos-c1v5 \
+    libproj25 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copia as bibliotecas geoespaciais e binários GDAL/GEOS da builder stage
-COPY --from=builder /usr/lib/ /usr/lib/
+# Copia os pacotes Python instalados da builder stage
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
 # Copia o código da aplicação
 COPY . .
 
-# Comando de inicialização CRÍTICO para Railway/Docker
-# O Gunicorn usa a variável de ambiente $PORT fornecida pelo Railway
-# Ele é mais robusto que o Uvicorn direto.
-# O Gunicorn precisa do caminho completo do módulo Python: 'nome_da_pasta.nome_do_arquivo:nome_da_app'
-# Se main.py estiver dentro de uma pasta 'app', use 'app.main:app'
-CMD exec gunicorn app.main:app --bind 0.0.0.0:$PORT --workers 4 --worker-class uvicorn.workers.UvicornWorker --timeout 120
+# Cria diretórios necessários
+RUN mkdir -p uploads data
+
+# Expõe a porta (Railway usa a variável $PORT)
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8000}/health').read()" || exit 1
+
+# Comando de inicialização para Railway
+CMD exec gunicorn app.main:app \
+    --bind 0.0.0.0:${PORT:-8000} \
+    --workers 4 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --timeout 120 \
+    --access-logfile - \
+    --error-logfile - \
+    --log-level info

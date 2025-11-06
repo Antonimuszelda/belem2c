@@ -1,0 +1,131 @@
+/* HyperspaceTransition.css - Star Wars Hyperspace Effect */
+
+.hyperspace-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #000000;
+  overflow: hidden;
+  z-index: 10000;
+}
+
+.hyperspace-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center, rgba(0, 229, 255, 0.3) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.speed-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%),
+    linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+  background-size: 100px 100px;
+  animation: speedLinesMove 0.3s linear infinite;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+@keyframes speedLinesMove {
+  0% {
+    transform: translateX(0) translateY(0) scale(1);
+  }
+  100% {
+    transform: translateX(50px) translateY(50px) scale(1.1);
+  }
+}
+
+.hyperspace-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 10;
+}
+
+.hyperspace-text h1 {
+  font-size: 4rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #00e5ff 0%, #ffffff 50%, #00ff88 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 8px;
+  text-shadow: 
+    0 0 40px rgba(0, 229, 255, 1),
+    0 0 80px rgba(0, 229, 255, 0.5);
+  animation: textBlur 0.5s ease-in-out infinite;
+}
+
+@keyframes textBlur {
+  0%, 100% {
+    filter: blur(0px);
+    transform: scale(1);
+  }
+  50% {
+    filter: blur(2px);
+    transform: scale(1.02);
+  }
+}
+
+/* Chromatic aberration effect */
+.hyperspace-container::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
+  background: 
+    radial-gradient(circle at 30% 30%, rgba(255, 0, 0, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 70% 70%, rgba(0, 0, 255, 0.1) 0%, transparent 50%);
+  animation: chromaticShift 0.3s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes chromaticShift {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(3px, 3px);
+  }
+}
+
+/* Vignette escura nas bordas */
+.hyperspace-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center, transparent 30%, #000000 100%);
+  pointer-events: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hyperspace-text h1 {
+    font-size: 2.5rem;
+    letter-spacing: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hyperspace-text h1 {
+    font-size: 2rem;
+    letter-spacing: 2px;
+  }
+}

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # BACKEND: FastAPI (API de Processamento Geoespacial e IA)
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile.backend
+    container_name: sentinel_ia_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app  # Monta o código para desenvolvimento
+      - ./backend/.env:/app/.env
+      - sqlite_data:/app/
+    env_file:
+      - ./backend/.env
+    # Garante que o serviço frontend espere o backend estar pronto (não estritamente necessário para dev, mas boa prática)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # FRONTEND: Next.js (Visualização 3D com Cesium JS)
+  frontend:
+    # Usamos o comando 'npm run dev' padrão do Next.js
+    # NOTA: O ambiente de desenvolvimento Next.js é pesado, o Docker é usado aqui apenas para orquestração de rede.
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sentinel_ia_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      # URL da API para o frontend saber onde buscar dados
+      NEXT_PUBLIC_API_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  sqlite_data:

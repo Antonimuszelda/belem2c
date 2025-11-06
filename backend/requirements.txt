@@ -1,22 +1,23 @@
-# backend/requirements.txt - VERSÃO FINAL (GEE Real, SEM IA)
+# backend/requirements.txt - VERSÃO COM GEOJSON (sem fiona/shapely que precisam GDAL)
 
-fastapi==0.111.0
-uvicorn==0.30.1
+fastapi>=0.111.0
+uvicorn>=0.31.1
 gunicorn==22.0.0
 
-pydantic==1.10.13
+pydantic
 
-# Dependências geoespaciais
-fiona==1.9.6
-shapely==2.0.4
-geojson==3.1.0
+# GeoJSON (Python puro - não precisa GDAL)
+geojson>=3.1.0
 
 # Dependências GEE/STAC + Autenticação Google
-earthengine-api==0.1.419
+earthengine-api>=0.1.419
 google-api-python-client
 google-auth
 google-auth-httplib2
-# pystac-client==0.7.2 # Removido se não usar STAC diretamente
-python-dotenv==1.0.1
+python-dotenv>=1.0.1
+requests>=2.28.0
 
-# REMOVIDOS: openai, httpx, transformers, torch, accelerate
+# Google ADK (GRATUITO) + Generative AI
+google-adk
+google-genai
+google-generativeai>=0.8.0

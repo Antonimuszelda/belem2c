@@ -8,7 +8,8 @@ interface ControlPanelProps {
     defaultLongitude: number;
 }
 
-const API_URL = "http://127.0.0.1:8000/analyze"; // 🎯 URL do seu endpoint FastAPI
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const API_URL = `${API_BASE}/analyze`; // 🎯 URL do seu endpoint FastAPI
 
 const ControlPanel: React.FC<ControlPanelProps> = ({ defaultLatitude, defaultLongitude }) => {
     // Estados para os dados de entrada

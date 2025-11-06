@@ -1,675 +1,682 @@
-// frontend/src/App.tsx - VERSÃO FINAL CORRIGIDA E COM TEMA ESCURO (MAPA PRETO)
+import { useEffect, useMemo, useRef, useState, Component } from "react";
+import { MapContainer, TileLayer, FeatureGroup, Polygon, useMap, GeoJSON } from "react-leaflet";
+import * as L from "leaflet";
+import "leaflet-draw/dist/leaflet.draw.css";
+import "leaflet-draw";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-// IMPORTAÇÕES CRÍTICAS DO REACT LEAFLET - Corrigido o problema "Cannot find name 'MapContainer/TileLayer'"
-import { MapContainer, TileLayer, useMap, GeoJSON, ZoomControl } from 'react-leaflet'; 
-import L, { Map, FeatureGroup, GeoJSON as LeafletGeoJSON, type StyleFunction } from 'leaflet'; 
-import 'leaflet-draw';
-//import 'leaflet-draw/dist/leaflet.draw-src.js';
-import 'leaflet/dist/leaflet.css'; 
-import 'leaflet-draw/dist/leaflet.draw.css'; 
-import './App.css'; 
+import "./App.css";
+import ChatPanel from "./components/ChatPanel";
+import Loading3D from "./components/Loading3D";
+import IntroSlides from "./components/IntroSlides";
+import HyperspaceTransition from "./components/HyperspaceTransition";
 
-// --- CORREÇÃO DE ÍCONES LEAFLET ---
-import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-import iconUrl from 'leaflet/dist/images/marker-icon.png';
-import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+// Error Boundary simples
+class ErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: iconRetinaUrl,
-    iconUrl: iconUrl,
-    shadowUrl: shadowUrl,
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          background: '#0a0e27',
+          color: '#00e5ff',
+          flexDirection: 'column',
+          gap: '20px'
+        }}>
+          <h1>Carregando HARP-IA...</h1>
+          <div className="spinner" style={{ width: '50px', height: '50px' }}></div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Fix para os ícones padrão do Leaflet
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
 });
 
-// --- Interfaces para Tipagem ---
-interface Coordinate { lat: number; lng: number; }
-interface ImageResult { date: string; satellite: string; tile_url: string; }
-interface DEMResult { tileUrl: string; min_elevation?: number | null; max_elevation?: number | null; }
-interface LayerData {
-    tileUrl: string | null;
-    opacity: number;
-    dem: DEMResult | null;
-    satellite: string;
-    key: number;
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Tipos
+type Coordinate = { lat: number; lng: number };
+type LayerType = "SENTINEL2_RGB" | "LANDSAT_RGB" | "SENTINEL1_VV" | "NDVI" | "NDWI" | "LST" | "UHI" | "UTFVI" | "DEM";
+type ActiveLayers = Partial<Record<LayerType, string>>;
+type ImageItem = { date: string; cloud_cover: number; satellite: string };
+
+const API_BASE = (import.meta as any).env.VITE_API_URL || "http://127.0.0.1:8000";
+
+// Funções Utilitárias
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
 }
-interface DrawControlProps {
-    onPolygonCreated: (coords: Coordinate[]) => void;
-    clearRef: React.MutableRefObject<(() => void) | null>;
+function daysAgoStr(n: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
 }
 
-// --- Componente de Controle de Desenho (Leaflet Draw) ---
-const DrawControl: React.FC<DrawControlProps> = ({ onPolygonCreated, clearRef }) => {
-    const map = useMap() as Map;
-    const drawnItemsRef = useRef<FeatureGroup>(new L.FeatureGroup());
-    const drawControlRef = useRef<L.Control.Draw | null>(null);
+// Componente de Desenho no Mapa
+function DrawControl({ onPolygonCreated, clearSignal }: { onPolygonCreated: (coords: Coordinate[]) => void; clearSignal: number; }) {
+  const map = useMap();
+  const groupRef = useRef<L.FeatureGroup>(new L.FeatureGroup());
 
-    const clearLayers = useCallback(() => {
-        drawnItemsRef.current.clearLayers();
-        onPolygonCreated([]);
-    }, [onPolygonCreated]);
+  useEffect(() => {
+    map.addLayer(groupRef.current);
+    const drawControl = new L.Control.Draw({
+      draw: {
+        polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: "var(--neon-cyan)" } },
+        polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false,
+      },
+      edit: { featureGroup: groupRef.current },
+    });
+    map.addControl(drawControl as any);
 
-    clearRef.current = clearLayers;
-
-    useEffect(() => {
-        if (!map.hasLayer(drawnItemsRef.current)) {
-            map.addLayer(drawnItemsRef.current);
-        }
-        if (drawControlRef.current) {
-            map.removeControl(drawControlRef.current);
-        }
-        drawControlRef.current = new L.Control.Draw({
-            edit: {
-                featureGroup: drawnItemsRef.current
-            },
-            draw: {
-                polygon: {
-                    allowIntersection: false,
-                    showArea: true,
-                    shapeOptions: { color: '#DAA520' }
-                },
-                polyline: false, marker: false, circlemarker: false, rectangle: false, circle: false,
-            },
-        });
-        map.addControl(drawControlRef.current);
-
-        const onDrawCreated = (e: L.LeafletEvent) => {
-            const event = e as L.DrawEvents.Created;
-            const layer = event.layer as L.Polygon;
-            drawnItemsRef.current.clearLayers();
-            drawnItemsRef.current.addLayer(layer);
-            const latlngs = (layer.getLatLngs()[0] as L.LatLng[]).map(coord => ({ lat: coord.lat, lng: coord.lng }));
-            onPolygonCreated(latlngs);
-        };
-
-        const onDrawEdited = (e: L.LeafletEvent) => {
-             const event = e as L.DrawEvents.Edited;
-            event.layers.eachLayer((layer) => {
-                if (layer instanceof L.Polygon) {
-                    const latlngs = (layer.getLatLngs()[0] as L.LatLng[]).map(coord => ({ lat: coord.lat, lng: coord.lng }));
-                    onPolygonCreated(latlngs);
-                }
-            });
-        };
-
-        map.on(L.Draw.Event.CREATED, onDrawCreated);
-        map.on(L.Draw.Event.EDITED, onDrawEdited);
-
-        return () => {
-            map.off(L.Draw.Event.CREATED, onDrawCreated);
-            map.off(L.Draw.Event.EDITED, onDrawEdited);
-            if (drawControlRef.current) {
-                map.removeControl(drawControlRef.current);
-                drawControlRef.current = null;
-            }
-        };
-    }, [map, onPolygonCreated]);
-
-    return null;
-};
-
-// --- Componente para Camadas de Tile GEE ---
-const GEETileLayerComponent: React.FC<{ tileUrl: string | null; opacity?: number; layerKey: number }> = ({ tileUrl, opacity = 1.0, layerKey }) => {
-    if (!tileUrl) return null;
-    return <TileLayer key={layerKey} url={tileUrl} attribution='&copy; Google Earth Engine / Sentinel-IA / Copernicus' opacity={opacity} zIndex={10} />;
-};
-
-
-// =========================================================
-// 🎯 COMPONENTE PRINCIPAL (App)
-// =========================================================
-const App: React.FC = () => {
-    // CRITICAL FIX 1: Usa a variável de ambiente Vercel/Vite para a URL da API.
-    // Isso corrige o erro de 'localhost:8000' (ERR_CONNECTION_REFUSED)
-    const API_URL = import.meta.env.VITE_API_URL;
-
-    // --- Estados (Corrigido 'Cannot find name 'polygonCoords/setLoading'') ---
-    const [polygonCoords, setPolygonCoords] = useState<Coordinate[]>([]);
-    const [startDate] = useState<string>('2024-01-01');
-    const [endDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-
-    const [layerA, setLayerA] = useState<LayerData>({ tileUrl: null, opacity: 0.8, dem: null, satellite: 'Sentinel-2_RGB', key: 1 });
-    const [layerB, setLayerB] = useState<LayerData>({ tileUrl: null, opacity: 0.8, dem: null, satellite: 'Sentinel-1_VV', key: 1 });
-
-    const [censoGeoJSON, setCensoGeoJSON] = useState<any>(null);
-    const [censoOpacity, setCensoOpacity] = useState<number>(0.6);
-
-    const [message, setMessage] = useState<string>('Desenhe um polígono no mapa para começar.');
-    const [loading, setLoading] = useState<boolean>(false);
-
-    const [imageResultsA, setImageResultsA] = useState<ImageResult[]>([]);
-    const [imageResultsB, setImageResultsB] = useState<ImageResult[]>([]);
-
-    const clearDrawRef = useRef<(() => void) | null>(null);
-    const geojsonRef = useRef<LeafletGeoJSON | null>(null);
-    const [censoLayerKey, setCensoLayerKey] = useState<number>(0);
-
-    const compositionOptions = [
-        { value: 'Sentinel-2_RGB', label: 'Sentinel-2 (RGB)' },
-        { value: 'Sentinel-2_FCC', label: 'Sentinel-2 (Falsa Cor IR)' },
-        { value: 'NDVI', label: 'Índice de Vegetação (NDVI)' },
-        { value: 'Sentinel-1_VV', label: 'SAR Sentinel-1 (VV)' },
-        { value: 'Sentinel-1_VH', label: 'SAR Sentinel-1 (VH)' },
-        { value: 'Sentinel-1_VV_VH_RGB', label: 'SAR Sentinel-1 (RGB Comp.)' },
-        { value: 'DEM', label: 'Elevação (DEM SRTM)' },
-    ];
-
-    // --- Funções de Manipulação ---
-
-    const handlePolygonCreated = (coords: Coordinate[]) => {
-        setPolygonCoords(coords);
-        setMessage(coords.length >= 3 ? `Polígono definido. Selecione as camadas e clique em Buscar/Analisar.` : 'Desenhe um polígono (mínimo 3 pontos).');
-        setLayerA(prev => ({ ...prev, tileUrl: null, dem: null, key: prev.key + 1 }));
-        setLayerB(prev => ({ ...prev, tileUrl: null, dem: null, key: prev.key + 1 }));
-        setImageResultsA([]);
-        setImageResultsB([]);
-        setCensoGeoJSON(null);
+    const onCreated = (e: L.LeafletEvent & { layer: L.Layer }) => {
+      const layer = e.layer as L.Polygon;
+      groupRef.current.clearLayers();
+      groupRef.current.addLayer(layer);
+      const latlngs = (layer.getLatLngs()[0] as L.LatLng[]).map(p => ({ lat: p.lat, lng: p.lng }));
+      onPolygonCreated(latlngs);
     };
 
-    const checkPolygon = useCallback(() => {
-        if (polygonCoords.length < 3) {
-            setMessage('ATENÇÃO: Desenhe um polígono válido (mínimo 3 pontos) no mapa.');
-            return false;
-        }
-        return true;
-    }, [polygonCoords]);
-
-    const clearAll = useCallback(() => {
-        if (clearDrawRef.current) clearDrawRef.current();
-        setPolygonCoords([]);
-        setLayerA(prev => ({ ...prev, tileUrl: null, dem: null, key: prev.key + 1 }));
-        setLayerB(prev => ({ ...prev, tileUrl: null, dem: null, key: prev.key + 1 }));
-        setImageResultsA([]);
-        setImageResultsB([]);
-        setCensoGeoJSON(null);
-        setMessage('Área limpa. Desenhe um novo polígono.');
-    }, []);
-
-
-    // =========================================================
-    // 🎯 FUNÇÕES GEOJSON (Estilo, Popup, Tooltip, Carregamento)
-    // =========================================================
-
-    // Corrigido 'defaultCensoStyle' e 'highlightCensoStyle' para usar a variável censoOpacity
-    const defaultCensoStyle = { 
-        fillColor: '#4F4F4F', 
-        weight: 1, 
-        opacity: 1, 
-        color: '#666', 
-        fillOpacity: censoOpacity * 0.6 
+    const onEdited = (e: any) => {
+      e.layers.eachLayer((layer: L.Layer) => {
+        const poly = layer as L.Polygon;
+        const latlngs = (poly.getLatLngs()[0] as L.LatLng[]).map(p => ({ lat: p.lat, lng: p.lng }));
+        onPolygonCreated(latlngs);
+      });
     };
 
-    const highlightCensoStyle = { 
-        weight: 3, 
-        color: '#DAA520', // Cor de destaque (âmbar)
-        fillOpacity: censoOpacity * 0.8 
+    map.on("draw:created" as any, onCreated);
+    map.on("draw:edited" as any, onEdited);
+
+    return () => {
+      map.off("draw:created" as any, onCreated);
+      map.off("draw:edited" as any, onEdited);
+      if (map.hasLayer(groupRef.current)) {
+        map.removeControl(drawControl as any);
+        map.removeLayer(groupRef.current);
+      }
     };
+  }, [map, onPolygonCreated]);
+
+  useEffect(() => {
+    if (clearSignal > 0) groupRef.current.clearLayers();
+  }, [clearSignal]);
+
+  return null;
+}
+
+// Componente Principal
+export default function App() {
+  // Navigation state: 'loading1' | 'slides' | 'hyperspace' | 'app'
+  const [appState, setAppState] = useState<'loading1' | 'slides' | 'hyperspace' | 'app'>('loading1');
+  
+  const mapRef = useRef<L.Map | null>(null);
+  const [polygon, setPolygon] = useState<Coordinate[]>([]);
+  const [startDate, setStartDate] = useState(daysAgoStr(365));
+  const [endDate, setEndDate] = useState(todayStr());
+  const [cloud, setCloud] = useState(30);
+  const [activeLayers, setActiveLayers] = useState<ActiveLayers>({});
+  const [layerOpacity, setLayerOpacity] = useState<Record<LayerType, number>>({
+    SENTINEL2_RGB: 1.0,
+    LANDSAT_RGB: 1.0,
+    SENTINEL1_VV: 0.8,
+    NDVI: 0.7,
+    NDWI: 0.7,
+    LST: 0.7,
+    UHI: 0.8,
+    UTFVI: 0.8,
+    DEM: 0.6,
+  });
+  const [geojsonLayerData, setGeojsonLayerData] = useState<any>(null); // GeoJSON layer to render
+  const [showImageListModal, setShowImageListModal] = useState(false);
+  const [imageList, setImageList] = useState<ImageItem[]>([]);
+  const [selectedLayerType, setSelectedLayerType] = useState<LayerType | null>(null);
+  const [chatOpen, setChatOpen] = useState(false); // Chat panel state
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [clearSignal, setClearSignal] = useState(0);
+
+  const center = useMemo(() => ({ lat: -15.78, lng: -47.93 }), []);
+
+  // Função para formatar e traduzir propriedades do GeoJSON
+  const formatGeoJSONPopup = (properties: any): string => {
+    const translations: Record<string, string> = {
+      // FCUs
+      'cd_fcu': 'Código',
+      'nm_fcu': 'Nome',
+      'cd_uf': 'Código UF',
+      'nm_uf': 'Estado',
+      'sigla_uf': 'UF',
+      'cd_mun': 'Código Município',
+      'nm_mun': 'Município',
+      'nommunic': 'Município',
+      'codagsn': 'Código',
+      'nome_agsn': 'Nome',
+      'complement': 'Complemento',
+      'ano_ref': 'Ano Referência',
+      'ano_censo': 'Ano Censo',
+      'rf': 'Regularização Fundiária',
+      'ro': 'Remoção',
+      'spe': 'Serviços Públicos',
+      'pu': 'Parcelamento Urbano',
+      'setorizado': 'Setorizado',
+      // Setores
+      'CD_MUN': 'Código Município',
+      'NM_MUN': 'Município',
+      'SIGLA_UF': 'UF',
+      'AREA_KM2': 'Área (km²)',
+      // Geral
+      'uf': 'UF',
+      'codmun': 'Código Município'
+    };
+
+    const importantFields = ['nm_fcu', 'nome_agsn', 'NM_MUN', 'nm_mun', 'nommunic', 'nm_uf', 'SIGLA_UF', 'sigla_uf', 'AREA_KM2'];
     
-    // ATUALIZADO: Mostra 'source_file' e 'populacao' no popup
-    const onEachFeatureCenso = (feature: any, layer: L.Layer) => {
-        const properties = feature.properties;
+    let html = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; min-width: 200px;">';
+    
+    // Título principal
+    const title = properties.nm_fcu || properties.nome_agsn || properties.NM_MUN || properties.nm_mun || properties.nommunic || 'Área';
+    html += `<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; margin: -13px -20px 12px -20px; border-radius: 12px 12px 0 0; font-weight: bold; font-size: 15px;">
+      🏘️ ${title}
+    </div>`;
+    
+    // Informações principais
+    const entries = Object.entries(properties)
+      .filter(([key, value]) => value != null && value !== '' && key !== 'geometry')
+      .sort((a, b) => {
+        const aImportant = importantFields.includes(a[0]) ? 0 : 1;
+        const bImportant = importantFields.includes(b[0]) ? 0 : 1;
+        return aImportant - bImportant;
+      });
+    
+    if (entries.length > 0) {
+      html += '<div style="display: grid; gap: 8px;">';
+      
+      entries.forEach(([key, value]) => {
+        if (key === 'nm_fcu' || key === 'nome_agsn' || key === 'NM_MUN') return; // Já está no título
         
-        // Tooltip
-        const popupContent = `
-            <div class='censo-popup-content'>
-                <strong>Arquivo:</strong> ${properties.source_file || 'N/A'}<br/>
-                <strong>Setor:</strong> ${properties.cod_setor || 'N/A'}<br/>
-                <strong>População:</strong> ${properties.populacao ? properties.populacao.toLocaleString('pt-BR') : 'N/A'}
+        const label = translations[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const displayValue = String(value);
+        
+        // Formatar valores especiais
+        let formattedValue = displayValue;
+        let icon = '📌';
+        
+        if (key.includes('area') || key.includes('AREA')) {
+          icon = '📏';
+        } else if (key.includes('mun') || key.includes('MUN')) {
+          icon = '🏙️';
+        } else if (key.includes('uf') || key.includes('UF')) {
+          icon = '🗺️';
+        } else if (key.includes('ano')) {
+          icon = '📅';
+        } else if (key.includes('cd_') || key.includes('CD_') || key.includes('cod')) {
+          icon = '🔢';
+        }
+        
+        html += `
+          <div style="display: flex; align-items: start; padding: 6px; background: rgba(102, 126, 234, 0.05); border-radius: 6px; border-left: 3px solid #667eea;">
+            <span style="margin-right: 8px;">${icon}</span>
+            <div style="flex: 1;">
+              <div style="font-size: 11px; color: #666; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">${label}</div>
+              <div style="font-size: 13px; color: #333; font-weight: 600; margin-top: 2px;">${formattedValue}</div>
             </div>
+          </div>
         `;
-        layer.bindPopup(popupContent, { 
-            closeButton: false, 
-            className: 'censo-popup'
-        });
+      });
+      
+      html += '</div>';
+    }
+    
+    html += '</div>';
+    return html;
+  };
 
-        // Tooltip (permanente ao passar o mouse)
-        layer.on({
-            mouseover: (e) => {
-                const l = e.target as L.Path;
-                l.setStyle(highlightCensoStyle);
-                l.bringToFront();
-                layer.bindTooltip(`População: ${properties.populacao ? properties.populacao.toLocaleString('pt-BR') : 'N/A'}`, { 
-                    permanent: false, 
-                    direction: 'auto',
-                    className: 'censo-tooltip'
-                }).openTooltip();
-            },
-            mouseout: (e) => {
-                if (geojsonRef.current) {
-                    geojsonRef.current.resetStyle(e.target);
-                }
-            },
-            click: (e) => {
-                const l = e.target as L.Path;
-                l.setStyle(highlightCensoStyle);
-                l.openPopup();
-            }
-        });
-    };
+  // Navigation flow control
+  useEffect(() => {
+    if (appState === 'loading1') {
+      const timer = setTimeout(() => setAppState('slides'), 3000);
+      return () => clearTimeout(timer);
+    } else if (appState === 'hyperspace') {
+      const timer = setTimeout(() => setAppState('app'), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [appState]);
 
-    const fetchGeoJSON = useCallback(async () => {
-        if (!checkPolygon()) return;
+  const handleSlidesComplete = () => {
+    setAppState('hyperspace');
+  };
 
-        setLoading(true);
-        setMessage('Buscando dados GeoJSON...');
-        setCensoGeoJSON(null);
+  const handlePolygonCreated = (coords: Coordinate[]) => {
+    setPolygon(coords);
+    setActiveLayers({}); // Limpa camadas ao desenhar novo polígono
+  };
 
-        // Formato para API
-        const geojson_data = {
-            type: "Polygon",
-            coordinates: [polygonCoords.map(c => [c.lng, c.lat])]
-        };
+  const handleToggleLayer = async (layerType: LayerType) => {
+    if (activeLayers[layerType]) {
+      // Camada está ativa, então desativa
+      setActiveLayers(prev => {
+        const newLayers = { ...prev };
+        delete newLayers[layerType];
+        return newLayers;
+      });
+      return;
+    }
 
-        try {
-            const response = await fetch(`${API_URL}/process_geojson`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ geojson: geojson_data }),
-            });
+    if (polygon.length < 3) {
+      alert("Primeiro, desenhe um polígono ou carregue uma área de interesse.");
+      return;
+    }
 
-            if (!response.ok) {
-                throw new Error(`Erro HTTP: ${response.status}`);
-            }
+    // Buscar lista de imagens disponíveis
+    setLoading(prev => ({ ...prev, [layerType]: true }));
+    try {
+      const body = { polygon, start_date: startDate, end_date: endDate, layer_type: layerType, cloud_percentage: cloud };
+      
+      const res = await fetch(`${API_BASE}/api/list_images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-            const data = await response.json();
-            
-            // Verifica se o resultado é uma FeatureCollection e tem features
-            if (data && data.features && data.features.length > 0) {
-                setCensoGeoJSON(data);
-                setMessage(`Sucesso! ${data.features.length} setores censitários encontrados na área.`);
-                setCensoLayerKey(prev => prev + 1); // Força a re-renderização do GeoJSON
-            } else {
-                setMessage('Aviso: Nenhum setor censitário encontrado para a área selecionada.');
-                setCensoGeoJSON(null);
-            }
+      if (!res.ok) throw new Error(`[${res.status}] ${await res.text()}`);
+      const data = await res.json();
+      
+      if (data.images && data.images.length > 0) {
+        setImageList(data.images);
+        setSelectedLayerType(layerType);
+        setShowImageListModal(true);
+      } else {
+        alert(`Nenhuma imagem encontrada para ${layerType} no período selecionado. Tente aumentar o intervalo de datas ou a tolerância de nuvens.`);
+      }
+    } catch (e: any) {
+      alert(`Erro ao buscar imagens para ${layerType}: ${e.message || e}`);
+    } finally {
+      setLoading(prev => ({ ...prev, [layerType]: false }));
+    }
+  };
 
-        } catch (error) {
-            console.error('Erro ao buscar GeoJSON:', error);
-            setMessage(`ERRO ao carregar GeoJSON: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-        } finally {
-            setLoading(false);
-        }
-    }, [polygonCoords, API_URL, checkPolygon]);
+  const handleLoadSpecificImage = async (date: string) => {
+    if (!selectedLayerType) return;
+    
+    setLoading(prev => ({ ...prev, [selectedLayerType]: true }));
+    setShowImageListModal(false);
+    
+    try {
+      const endpoint = selectedLayerType === 'DEM' ? '/api/get_dem' : '/api/get_tile';
+      const body = selectedLayerType === 'DEM' 
+        ? { polygon } 
+        : { polygon, start_date: startDate, end_date: endDate, layer_type: selectedLayerType, cloud_percentage: cloud, specific_date: date };
+      
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
+      if (!res.ok) throw new Error(`[${res.status}] ${await res.text()}`);
+      const data = await res.json();
+      const url = data.tileUrl || data.tile_url;
+      
+      setActiveLayers(prev => ({ ...prev, [selectedLayerType]: url }));
 
-    // =========================================================
-    // 🎯 FUNÇÕES GEE (Satélite)
-    // =========================================================
+    } catch (e: any) {
+      alert(`Erro ao carregar imagem de ${date}: ${e.message || e}`);
+    } finally {
+      setLoading(prev => ({ ...prev, [selectedLayerType!]: false }));
+    }
+  };
 
-    const fetchGEEImage = useCallback(async (layerKey: 'A' | 'B') => {
-        const layerState = layerKey === 'A' ? layerA : layerB;
-        if (!checkPolygon()) return;
+  
+  const handleClear = () => {
+    setPolygon([]);
+    setActiveLayers({});
+    setGeojsonLayerData(null); // Clear GeoJSON layer
+    setClearSignal((s) => s + 1);
+    if (mapRef.current) {
+      mapRef.current.setView([-15.78, -47.93], 4);
+    }
+  };
 
-        setLoading(true);
-        setMessage(`Buscando imagem GEE para Camada ${layerKey}...`);
-        
-        const setResults = layerKey === 'A' ? setImageResultsA : setImageResultsB;
-        const setLayer = layerKey === 'A' ? setLayerA : setLayerB;
+  const isAnythingLoading = Object.values(loading).some(v => v);
 
-        // Limpa a camada atual
-        setLayer(prev => ({ ...prev, tileUrl: null, dem: null, key: prev.key + 1 }));
-        setResults([]);
-
-        const geojson_data = {
-            type: "Polygon",
-            coordinates: [polygonCoords.map(c => [c.lng, c.lat])]
-        };
-
-        try {
-            const endpoint = layerState.satellite === 'DEM' ? 'get_dem' : 'get_latest_image';
-            
-            const body = {
-                geojson: geojson_data,
-                date_from: startDate,
-                date_to: endDate,
-                composition: layerState.satellite,
-            };
-
-            const response = await fetch(`${API_URL}/${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-
-            if (!response.ok) {
-                throw new Error(`Erro HTTP: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (data.tile_url || data.tileUrl) {
-                // Caso seja uma imagem (latest_image)
-                if (data.tile_url) {
-                    setLayer(prev => ({ 
-                        ...prev, 
-                        tileUrl: data.tile_url, 
-                        key: prev.key + 1 
-                    }));
-                    setResults([{ date: data.date, satellite: layerState.satellite, tile_url: data.tile_url }]);
-                    setMessage(`Sucesso! Camada ${layerKey} (${layerState.satellite}) carregada.`);
-                // Caso seja um DEM
-                } else if (data.tileUrl) {
-                    setLayer(prev => ({ 
-                        ...prev, 
-                        tileUrl: data.tileUrl, 
-                        dem: { 
-                            tileUrl: data.tileUrl, 
-                            min_elevation: data.min_elevation, 
-                            max_elevation: data.max_elevation 
-                        },
-                        key: prev.key + 1 
-                    }));
-                    setMessage(`Sucesso! Camada ${layerKey} (DEM) carregada. Min/Max: ${data.min_elevation?.toFixed(1)}m / ${data.max_elevation?.toFixed(1)}m`);
-                }
-            } else {
-                setMessage(`Aviso: Nenhuma imagem ${layerState.satellite} encontrada no período para a área.`);
-            }
-
-        } catch (error) {
-            console.error(`Erro ao buscar GEE Camada ${layerKey}:`, error);
-            setMessage(`ERRO GEE Camada ${layerKey}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-        } finally {
-            setLoading(false);
-        }
-    }, [polygonCoords, startDate, endDate, API_URL, checkPolygon, layerA, layerB]);
-
-
-    // =========================================================
-    // 🎯 FUNÇÕES IA
-    // =========================================================
-
-    const mockAnalysisData = {
-        dem_data: { min_elevation: 100, max_elevation: 250, avg_elevation: 175, std_dev: 25 },
-        sar_data: { avg_vv: -10.5, avg_vh: -22.0, change_index: 0.15 },
-        ndvi_data: { avg_ndvi: 0.65, min_ndvi: 0.3, max_ndvi: 0.85, vegetation_cover: 75.2 },
-    };
-
-    const runAIAnalysis = useCallback(async () => {
-        if (!checkPolygon()) return;
-
-        setLoading(true);
-        setMessage('Enviando dados para a IA para análise geoespacial. Aguarde...');
-
-        // Pega o centro do polígono para a análise (simples - apenas o primeiro ponto)
-        const centerCoord = polygonCoords.length > 0 ? polygonCoords[0] : { lat: 0, lng: 0 };
-        
-        // Pega a URL da imagem da camada A se existir, ou usa um placeholder
-        const imageUrl = layerA.tileUrl || "URL_DE_IMAGEM_NAO_DISPONIVEL";
-
-        try {
-            const body = {
-                latitude: centerCoord.lat,
-                longitude: centerCoord.lng,
-                image_url: imageUrl,
-                dem_data: layerA.dem || mockAnalysisData.dem_data, // Usa dados DEM reais ou mock
-                sar_data: mockAnalysisData.sar_data, // Mock para simplificação
-                ndvi_data: mockAnalysisData.ndvi_data, // Mock para simplificação
-            };
-
-            const response = await fetch(`${API_URL}/ai_analysis`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-
-            if (!response.ok) {
-                throw new Error(`Erro HTTP: ${response.status}`);
-            }
-
-            const result = await response.json();
-            
-            if (result.analysis_success) {
-                const reportText = result.ai_report_text;
-                // Abre o relatório em uma nova janela ou modal (neste caso, usando window.open para simplificar)
-                const newWindow = window.open('', '_blank');
-                if (newWindow) {
-                    newWindow.document.write(`
-                        <html>
-                        <head>
-                            <title>Relatório de Análise Geoespacial (IA)</title>
-                            <style>
-                                body { font-family: sans-serif; padding: 20px; background-color: #0a0f1c; color: #e3eaf2; }
-                                h1 { color: #3d8bff; border-bottom: 2px solid #1a2438; padding-bottom: 10px; }
-                                pre { white-space: pre-wrap; word-wrap: break-word; background-color: #1a2438; padding: 15px; border-radius: 5px; border: 1px solid #344256; }
-                            </style>
-                        </head>
-                        <body>
-                            <h1>Relatório de Análise Geoespacial (IA)</h1>
-                            <pre>${reportText}</pre>
-                        </body>
-                        </html>
-                    `);
-                    newWindow.document.close();
-                    setMessage('Análise da IA concluída! O relatório foi aberto em uma nova aba.');
-                } else {
-                    setMessage('Análise da IA concluída, mas não foi possível abrir o relatório (verifique as configurações de pop-up).');
-                }
-            } else {
-                 setMessage('ERRO na Análise da IA: Falha ao gerar o relatório.');
-            }
-
-        } catch (error) {
-            console.error('Erro na análise da IA:', error);
-            setMessage(`ERRO na Análise da IA: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-        } finally {
-            setLoading(false);
-        }
-    }, [polygonCoords, API_URL, checkPolygon, layerA]);
-
-
-    // =========================================================
-    // 🎯 RENDERIZAÇÃO
-    // =========================================================
-
+  // Render based on app state
+  if (appState === 'loading1') {
     return (
-        <div className="app-container theme-azul"> 
-            
-            {/* Sidebar (Controles) */}
-            <div className="sidebar">
-                
-                <h1 className="logo">HARP-IA GeoViewer</h1>
-
-                <div className="status-box">
-                    <p className={`status-message ${loading ? 'loading' : 'idle'}`}>
-                        {loading ? 'Processando...' : message}
-                    </p>
-                </div>
-
-                {/* Seção 1: Controle de Área */}
-                <div className="control-group">
-                    <h2>Área de Interesse</h2>
-                    <p className="hint">Desenhe um polígono no mapa ou limpe a área.</p>
-                    <div className="action-buttons">
-                        <button className="btn-primary" onClick={clearAll} disabled={loading}>
-                            Limpar Área e Camadas
-                        </button>
-                        <button className="btn-secondary" onClick={fetchGeoJSON} disabled={loading || polygonCoords.length < 3}>
-                            Buscar GeoJSON (Setores)
-                        </button>
-                    </div>
-                </div>
-
-                {/* Seção 2: Camada de Satélite A */}
-                <div className="control-group">
-                    <h2>Camada A (Principal)</h2>
-                    <select
-                        className="select-control"
-                        value={layerA.satellite}
-                        onChange={(e) => setLayerA(prev => ({ ...prev, satellite: e.target.value as string }))}
-                        disabled={loading}
-                    >
-                        {compositionOptions.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                    </select>
-                    <div className="range-control">
-                        <label>Opacidade:</label>
-                        <input
-                            type="range"
-                            min="0.1"
-                            max="1.0"
-                            step="0.05"
-                            value={layerA.opacity}
-                            onChange={(e) => setLayerA(prev => ({ ...prev, opacity: parseFloat(e.target.value) }))}
-                            disabled={loading || !layerA.tileUrl}
-                        />
-                        <span>{(layerA.opacity * 100).toFixed(0)}%</span>
-                    </div>
-                    <button 
-                        className="btn-accent" 
-                        onClick={() => fetchGEEImage('A')} 
-                        disabled={loading || polygonCoords.length < 3}
-                    >
-                        Buscar Imagem A ({layerA.satellite})
-                    </button>
-                    {/* Resultados de Imagens Anteriores */}
-                    {imageResultsA.length > 0 && (
-                        <div className="image-results">
-                            {imageResultsA.map((img, index) => (
-                                <div key={index} className="image-card">
-                                    <p>{img.date} ({img.satellite})</p>
-                                    <button 
-                                        onClick={() => setLayerA(prev => ({ ...prev, tileUrl: img.tile_url, key: prev.key + 1 }))}
-                                        className="btn-link"
-                                    >
-                                        Ver Imagem
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                     {/* Dados DEM */}
-                    {layerA.dem && (
-                        <div className="dem-info">
-                            <p><strong>Elevação DEM:</strong></p>
-                            <p>Min: {layerA.dem.min_elevation?.toFixed(1)}m, Max: {layerA.dem.max_elevation?.toFixed(1)}m</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Seção 3: Camada de Satélite B (Comparação) */}
-                <div className="control-group">
-                    <h2>Camada B (Comparação)</h2>
-                    <select
-                        className="select-control"
-                        value={layerB.satellite}
-                        onChange={(e) => setLayerB(prev => ({ ...prev, satellite: e.target.value as string }))}
-                        disabled={loading}
-                    >
-                         {compositionOptions.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                    </select>
-                    <div className="range-control">
-                        <label>Opacidade:</label>
-                        <input
-                            type="range"
-                            min="0.1"
-                            max="1.0"
-                            step="0.05"
-                            value={layerB.opacity}
-                            onChange={(e) => setLayerB(prev => ({ ...prev, opacity: parseFloat(e.target.value) }))}
-                            disabled={loading || !layerB.tileUrl}
-                        />
-                        <span>{(layerB.opacity * 100).toFixed(0)}%</span>
-                    </div>
-                    <button 
-                        className="btn-accent" 
-                        onClick={() => fetchGEEImage('B')} 
-                        disabled={loading || polygonCoords.length < 3}
-                    >
-                        Buscar Imagem B ({layerB.satellite})
-                    </button>
-                    {/* Resultados de Imagens Anteriores */}
-                     {imageResultsB.length > 0 && (
-                        <div className="image-results">
-                            {imageResultsB.map((img, index) => (
-                                <div key={index} className="image-card">
-                                    <p>{img.date} ({img.satellite})</p>
-                                    <button 
-                                        onClick={() => setLayerB(prev => ({ ...prev, tileUrl: img.tile_url, key: prev.key + 1 }))}
-                                        className="btn-link"
-                                    >
-                                        Ver Imagem
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Seção 4: Controles GeoJSON */}
-                 {censoGeoJSON && (
-                     <div className="control-group">
-                        <h2>Controle GeoJSON</h2>
-                        <p className="hint">Setores censitários na área.</p>
-                        <div className="range-control">
-                            <label>Opacidade do GeoJSON:</label>
-                            <input
-                                type="range"
-                                min="0.1"
-                                max="1.0"
-                                step="0.05"
-                                value={censoOpacity}
-                                onChange={(e) => setCensoOpacity(parseFloat(e.target.value))}
-                                disabled={loading}
-                            />
-                            <span>{(censoOpacity * 100).toFixed(0)}%</span>
-                        </div>
-                    </div>
-                 )}
-
-                {/* Seção 5: Análise IA */}
-                <div className="control-group">
-                    <h2>Análise de IA</h2>
-                    <p className="hint">Gere um relatório completo da área com base nos dados carregados.</p>
-                    <button 
-                        className="btn-danger" 
-                        onClick={runAIAnalysis} 
-                        disabled={loading || polygonCoords.length < 3}
-                    >
-                        Executar Análise de IA
-                    </button>
-                </div>
-            </div>
-
-            {/* Map Container */}
-            <div className="map-wrapper">
-                <MapContainer
-                    center={[-15.7801, -47.9292]} // Centro (Exemplo: Brasília)
-                    zoom={5}
-                    className="leaflet-map"
-                    zoomControl={false}
-                >
-                    {/* Basemap: OpenStreetMap (substituído Carto por OSM conforme solicitado) */}
-                    <TileLayer
-                        attribution='&copy; OpenStreetMap contributors'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        subdomains={['a', 'b', 'c']}
-                        zIndex={0}
-                    />
-                     <ZoomControl position="topright" />
-                    <DrawControl onPolygonCreated={handlePolygonCreated} clearRef={clearDrawRef} />
-
-                    {/* Camada GeoJSON */}
-                    {censoGeoJSON && (
-                        <GeoJSON
-                             ref={geojsonRef}
-                             key={censoLayerKey} // Chave dinâmica
-                             data={censoGeoJSON}
-                             // Usa 'defaultCensoStyle' com o fillOpacity ajustado pelo estado 'censoOpacity'
-                             style={defaultCensoStyle as unknown as StyleFunction} 
-                             onEachFeature={onEachFeatureCenso}
-                        />
-                    )}
-
-                    {/* Camadas GEE (A e B) */}
-                    {layerB.tileUrl && <GEETileLayerComponent tileUrl={layerB.tileUrl} opacity={layerB.opacity} layerKey={layerB.key} />}
-                    {layerA.tileUrl && <GEETileLayerComponent tileUrl={layerA.tileUrl} opacity={layerA.opacity} layerKey={layerA.key} />}
-
-                </MapContainer>
-            </div>
-        </div>
+      <ErrorBoundary>
+        <Loading3D message="Inicializando Sistema HARP-IA..." />
+      </ErrorBoundary>
     );
-};
+  }
 
-export default App;
+  if (appState === 'slides') {
+    return (
+      <ErrorBoundary>
+        <IntroSlides onComplete={handleSlidesComplete} />
+      </ErrorBoundary>
+    );
+  }
+
+  if (appState === 'hyperspace') {
+    return (
+      <ErrorBoundary>
+        <HyperspaceTransition />
+      </ErrorBoundary>
+    );
+  }
+
+  // Main app
+
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <header className="sidebar-header">
+          <h1>HARP-IA</h1>
+          <p>Análise Geoespacial com IA</p>
+        </header>
+
+        <div className="sidebar-content">
+          <div className="control-group">
+            <h3><i className="icofont-ui-calendar"></i> Período</h3>
+            <div className="group">
+              <label>Início</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={isAnythingLoading} />
+            </div>
+            <div className="group">
+              <label>Fim</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={isAnythingLoading} />
+            </div>
+          </div>
+
+          <div className="control-group">
+            <h3><i className="icofont-cloud"></i> Filtro</h3>
+            <div className="group">
+              <label>Cobertura de Nuvem ({cloud}%)</label>
+              <input type="range" min={0} max={100} value={cloud} onChange={(e) => setCloud(Number(e.target.value))} disabled={isAnythingLoading} />
+            </div>
+          </div>
+
+          <div className="control-group">
+            <h3><i className="icofont-layers"></i> Camadas</h3>
+            <div className="layers-grid">
+              {(Object.keys(layerDefs) as LayerType[]).map(key => (
+                <div key={key} className="layer-item">
+                  <button className={`layer-btn ${activeLayers[key] ? 'active' : ''}`} onClick={() => handleToggleLayer(key)} disabled={!!loading[key]}>
+                    {loading[key] ? <div className="spinner" /> : <i className={layerDefs[key].icon} />}
+                    <span>{layerDefs[key].name}</span>
+                  </button>
+                  {activeLayers[key] && (
+                    <div className="opacity-control">
+                      <label>Opacidade: {Math.round(layerOpacity[key] * 100)}%</label>
+                      <input 
+                        type="range" 
+                        min={0} 
+                        max={100} 
+                        value={layerOpacity[key] * 100} 
+                        onChange={(e) => setLayerOpacity(prev => ({ ...prev, [key]: Number(e.target.value) / 100 }))}
+                        className="opacity-slider"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="control-group">
+            <h3><i className="icofont-map-pins"></i> Dados Geográficos</h3>
+            
+            <button 
+              className="btn-communities" 
+              onClick={async () => {
+                if (polygon.length < 3) {
+                  alert("Primeiro, desenhe um polígono para delimitar a área.");
+                  return;
+                }
+                
+                setLoading(prev => ({ ...prev, geojson: true }));
+                console.log('🚀 Iniciando carregamento de favelas...');
+                console.log('🌐 API_BASE:', API_BASE);
+                console.log('📍 Polígono:', JSON.stringify(polygon, null, 2));
+                
+                try {
+                  // Carregar todos os GeoJSONs de favelas na área delimitada
+                  const fileNames = ['FCUs_BR.json', 'geopackages_n_setorizadas.json', 'qg_2022_670_fcu_agreg.json', 'setores_censitarios.json'];
+                  const allFeatures: any[] = [];
+                  
+                  console.log('🔍 Carregando GeoJSONs:', fileNames);
+                  
+                  for (const fileName of fileNames) {
+                    try {
+                      const payload = { filename: fileName, polygon: polygon };
+                      const url = `${API_BASE}/api/geojson/render_layer`;
+                      
+                      console.log(`📁 Carregando ${fileName} de ${url}...`);
+                      console.log(`📦 Payload:`, JSON.stringify(payload).substring(0, 200));
+                      
+                      const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 
+                          'Content-Type': 'application/json',
+                          'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(payload),
+                        mode: 'cors'
+                      });
+                      
+                      console.log(`📡 Response status ${fileName}:`, res.status, res.statusText);
+                      
+                      if (res.ok) {
+                        const geojsonData = await res.json();
+                        const featuresCount = geojsonData.features?.length || 0;
+                        console.log(`✅ ${fileName}: ${featuresCount} features`);
+                        
+                        if (geojsonData.features && geojsonData.features.length > 0) {
+                          allFeatures.push(...geojsonData.features);
+                        }
+                      } else {
+                        const errorText = await res.text();
+                        console.error(`❌ ${fileName} falhou: ${res.status} - ${errorText}`);
+                        console.error(`❌ Response headers:`, Array.from(res.headers.entries()));
+                      }
+                    } catch (fileError: any) {
+                      console.error(`❌ Erro ao processar ${fileName}:`, fileError);
+                      console.error(`❌ Stack:`, fileError.stack);
+                    }
+                  }
+                  
+                  console.log(`📊 Total de features encontradas: ${allFeatures.length}`);
+                  
+                  if (allFeatures.length > 0) {
+                    const combinedGeoJSON = {
+                      type: 'FeatureCollection',
+                      features: allFeatures
+                    };
+                    console.log('✅ Setando GeoJSON no estado...');
+                    setGeojsonLayerData(combinedGeoJSON);
+                    alert(`✅ ${allFeatures.length} favelas/comunidades encontradas na área delimitada.`);
+                  } else {
+                    console.warn('⚠️ Nenhuma feature encontrada');
+                    alert("Nenhuma favela/comunidade encontrada na área delimitada. Tente uma área maior ou diferente.");
+                  }
+                  
+                } catch (e: any) {
+                  console.error('❌ Erro geral ao carregar favelas:', e);
+                  console.error('❌ Stack trace:', e.stack);
+                  alert(`Erro ao carregar favelas: ${e.message || e}`);
+                } finally {
+                  setLoading(prev => ({ ...prev, geojson: false }));
+                  console.log('🏁 Finalizado carregamento');
+                }
+              }}
+              disabled={polygon.length < 3 || !!loading.geojson}
+              style={{ width: '100%' }}
+            >
+              <i className="icofont-home"></i> {loading.geojson ? 'Carregando Favelas...' : 'Carregar Favelas na Área'}
+            </button>
+            
+          </div>
+
+        </div>
+
+        <footer className="sidebar-footer">
+          <button className="btn-ai" onClick={() => setChatOpen(true)} disabled={polygon.length < 3}>
+            <><i className="icofont-robot"></i> Chat com IA</>
+          </button>
+          <button className="btn-clear" onClick={handleClear} disabled={isAnythingLoading}>
+            Limpar Tudo
+          </button>
+        </footer>
+      </aside>
+
+      <main className="main-content">
+        <MapContainer center={center as any} zoom={4} className="map" ref={mapRef}>
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          
+          {Object.entries(activeLayers).map(([type, url]) => 
+            (url) ? <TileLayer key={type} url={url} opacity={layerOpacity[type as LayerType]} /> : null
+          )}
+
+          <FeatureGroup>
+            {polygon.length >= 3 && <Polygon pathOptions={{ color: "var(--neon-cyan)", weight: 2, fillOpacity: 0.1 }} positions={polygon.map(p => [p.lat, p.lng]) as any} />}
+          </FeatureGroup>
+
+          {geojsonLayerData && (
+            <GeoJSON 
+              key={JSON.stringify(geojsonLayerData)} 
+              data={geojsonLayerData}
+              style={{
+                color: "#667eea",
+                weight: 2,
+                fillOpacity: 0.2,
+                fillColor: "#667eea"
+              }}
+              onEachFeature={(feature, layer) => {
+                // Add popup with formatted feature properties
+                if (feature.properties) {
+                  const popupContent = formatGeoJSONPopup(feature.properties);
+                  layer.bindPopup(popupContent, {
+                    maxWidth: 350,
+                    className: 'custom-popup'
+                  });
+                }
+              }}
+            />
+          )}
+
+          <DrawControl onPolygonCreated={handlePolygonCreated} clearSignal={clearSignal} />
+        </MapContainer>
+      </main>
+
+      {showImageListModal && selectedLayerType && (
+        <div className="ai-modal-overlay" onClick={() => setShowImageListModal(false)}>
+          <div className="ai-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="ai-modal-header">
+              <h2><i className="icofont-satellite"></i> Imagens Disponíveis - {layerDefs[selectedLayerType].name}</h2>
+              <button className="close-btn" onClick={() => setShowImageListModal(false)}>✕</button>
+            </div>
+            <div className="ai-content" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+              <p style={{ marginBottom: '15px', color: '#aaa' }}>
+                Encontradas {imageList.length} imagens. Clique para carregar:
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {imageList.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleLoadSpecificImage(img.date)}
+                    style={{
+                      padding: '12px',
+                      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                      border: '1px solid var(--neon-cyan)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, #16213e 0%, #0f3460 100%)';
+                      e.currentTarget.style.borderColor = 'var(--neon-blue)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
+                      e.currentTarget.style.borderColor = 'var(--neon-cyan)';
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>
+                        📅 {img.date}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>
+                        {img.satellite} • Nuvens: {img.cloud_cover}%
+                      </div>
+                    </div>
+                    <i className="icofont-download" style={{ fontSize: '20px', color: 'var(--neon-green)' }}></i>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Panel */}
+      <ChatPanel 
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        polygon={polygon}
+        activeLayers={activeLayers}
+        geojsonLayerData={geojsonLayerData}
+        startDate={startDate}
+        endDate={endDate}
+      />
+    </div>
+  );
+}
+
+// Definições das camadas para a UI
+const layerDefs: Record<LayerType, { name: string; icon: string }> = {
+  SENTINEL2_RGB: { name: "Sentinel-2 (RGB)", icon: "icofont-satellite" },
+  LANDSAT_RGB: { name: "Landsat (RGB)", icon: "icofont-satellite-alt" },
+  SENTINEL1_VV: { name: "Sentinel-1 (Radar)", icon: "icofont-radar" },
+  NDVI: { name: "Vegetação (NDVI)", icon: "icofont-leaf" },
+  NDWI: { name: "Água (NDWI)", icon: "icofont-water-drop" },
+  LST: { name: "Temperatura (LST)", icon: "icofont-thermometer-alt" },
+  UHI: { name: "Ilha de Calor (UHI)", icon: "icofont-fire-burn" },
+  UTFVI: { name: "Variação Térmica (UTFVI)", icon: "icofont-chart-bar-graph" },
+  DEM: { name: "Elevação (DEM)", icon: "icofont-mountain" },
+};
