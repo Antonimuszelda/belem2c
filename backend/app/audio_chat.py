@@ -118,7 +118,7 @@ def generate_fallback_response(user_message: str) -> str:
     lower = (user_message or '').lower()
     if any(w in lower for w in q_words):
         reply = random.choice(base_replies)
-        reply = f"{reply} {"Respondendo:" if random.random()<0.5 else "Aqui vai:"} {user_message}"
+        reply = f"{reply} {'Respondendo:' if random.random()<0.5 else 'Aqui vai:'} {user_message}"
     else:
         reply = random.choice(base_replies)
 
