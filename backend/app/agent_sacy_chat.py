@@ -25,7 +25,7 @@ class SacyChatAgent:
         
         # Rate limiting: rastrear última requisição
         self.last_request_time = 0
-        self.min_request_interval = 2.0  # 2 segundos entre requisições
+        self.min_request_interval = 5.0  # 5 segundos entre requisições (aumentado devido a rate limiting)
         
         # Contexto do agente
         self.context_data = {
@@ -196,7 +196,7 @@ class SacyChatAgent:
         
         # Retry com backoff exponencial para rate limiting
         max_retries = 3
-        base_delay = 1  # segundos
+        base_delay = 3  # 3 segundos iniciais (aumentado devido a rate limiting)
         
         for attempt in range(max_retries):
             try:
