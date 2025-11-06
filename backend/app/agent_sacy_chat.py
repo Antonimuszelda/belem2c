@@ -1,5 +1,6 @@
 # backend/app/agent_sacy_chat.py - Agente Sacy com chat interativo usando ADK
 import os
+import time
 from typing import Dict, Any, List, Optional
 from google import genai
 from google.genai import types
@@ -21,6 +22,10 @@ class SacyChatAgent:
         
         # Configurar cliente ADK
         self.client = genai.Client(api_key=api_key)
+        
+        # Rate limiting: rastrear última requisição
+        self.last_request_time = 0
+        self.min_request_interval = 2.0  # 2 segundos entre requisições
         
         # Contexto do agente
         self.context_data = {
@@ -163,10 +168,20 @@ class SacyChatAgent:
         return "\n".join(parts) if parts else "ℹ️ Nenhum dado carregado ainda."
     
     def chat(self, user_message: str) -> str:
-        """Processa mensagem do usuário com contexto usando ADK."""
-        import time
-        
+        """Processa mensagem do usuário com contexto usando ADK com rate limiting."""
         context_summary = self.get_context_summary()
+        
+        # THROTTLING: Garantir intervalo mínimo entre requisições
+        current_time = time.time()
+        time_since_last_request = current_time - self.last_request_time
+        
+        if time_since_last_request < self.min_request_interval:
+            wait_time = self.min_request_interval - time_since_last_request
+            print(f"⏳ Throttling: aguardando {wait_time:.1f}s antes da próxima requisição...")
+            time.sleep(wait_time)
+        
+        # Atualizar timestamp
+        self.last_request_time = time.time()
         
         # Montar prompt completo com system instruction e contexto
         full_prompt = f"""{self.system_instruction}
