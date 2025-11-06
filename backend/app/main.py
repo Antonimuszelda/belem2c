@@ -108,9 +108,22 @@ if frontend_url:
     # Adiciona também a versão sem trailing slash
     allowed_origins.append(frontend_url.rstrip('/'))
 
+# Permite todos os domínios do Vercel (para preview deployments)
+# Formato: https://*.vercel.app
+import re
+def cors_allow_vercel(origin: str) -> bool:
+    """Permite qualquer subdomínio do Vercel"""
+    if origin in allowed_origins:
+        return True
+    # Aceita qualquer URL que termine com .vercel.app
+    if re.match(r'^https://.*\.vercel\.app$', origin):
+        return True
+    return False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origin_regex=r'^https://.*\.vercel\.app$',  # Aceita todos os deployments do Vercel
+    allow_origins=allowed_origins,  # Também aceita localhost
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
