@@ -99,6 +99,7 @@ app = FastAPI(
 allowed_origins = [
     "http://localhost:5173",
     "http://localhost:3000",
+    "https://harp-ia-demo-5c39.vercel.app",  # URL de produção do Vercel
 ]
 
 # Adiciona a URL do frontend do Vercel se definida
