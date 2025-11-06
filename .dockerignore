@@ -1,0 +1,7 @@
+# Ignorar apenas o que não é necessário
+.git
+.gitignore
+frontend
+*.md
+.vscode
+.idea
