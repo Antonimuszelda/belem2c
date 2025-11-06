@@ -1,7 +1,8 @@
-# backend/app/agent_sacy_chat.py - Agente Sacy com chat interativo
+# backend/app/agent_sacy_chat.py - Agente Sacy com chat interativo usando ADK
 import os
 from typing import Dict, Any, List, Optional
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,7 +11,7 @@ class SacyChatAgent:
     """
     Agente de IA Sacy para chat interativo sobre análise geoespacial.
     Mantém contexto de dados carregados (polígono, camadas, GeoJSON).
-    Usa google-generativeai diretamente (mais estável que google-adk).
+    Usa google-adk (Agentic Development Kit) - GRATUITO e sem limites de quota.
     """
     
     def __init__(self):
@@ -18,8 +19,8 @@ class SacyChatAgent:
         if not api_key:
             raise ValueError("❌ GOOGLE_API_KEY não configurada!")
         
-        # Configurar Gemini
-        genai.configure(api_key=api_key)
+        # Configurar cliente ADK
+        self.client = genai.Client(api_key=api_key)
         
         # Contexto do agente
         self.context_data = {
@@ -31,10 +32,8 @@ class SacyChatAgent:
             'end_date': None
         }
         
-        # Configuração do modelo com system instruction
-        self.model = genai.GenerativeModel(
-            model_name='gemini-2.0-flash-exp',
-            system_instruction="""
+        # System instruction para o modelo
+        self.system_instruction = """
             Você é JATAÍ 🐝, o copiloto ambiental paraense - um assistente amigável e inteligente especializado em análise geoespacial.
             
             **PERSONALIDADE:**
@@ -103,13 +102,12 @@ class SacyChatAgent:
             - NÃO explique demais se não for pedido
             - NÃO mencione processos técnicos internos ("executei ferramenta", "analisei com", etc.)
             - SEJA conciso e natural
-            - ADAPTE o tom ao contexto (sério para dados importantes, leve para conversa casual)
+            - ADAPTE o ton ao contexto (sério para dados importantes, leve para conversa casual)
             - FALE como se você mesmo tivesse observado/visto os dados
             """
-        )
         
-        # Iniciar sessão de chat (mantém histórico)
-        self.chat_session = self.model.start_chat(history=[])
+        # Histórico de mensagens para manter contexto
+        self.chat_history: List[types.Content] = []
     
     def update_context(
         self,
@@ -165,26 +163,12 @@ class SacyChatAgent:
         return "\n".join(parts) if parts else "ℹ️ Nenhum dado carregado ainda."
     
     def chat(self, user_message: str) -> str:
-        """Processa mensagem do usuário com contexto E ferramentas."""
+        """Processa mensagem do usuário com contexto usando ADK."""
         context_summary = self.get_context_summary()
         
-        # Usar o agent improved com function calling
-        try:
-            from .agent_sacy_improved import sacy_agent as improved_agent
-            
-            if improved_agent:
-                return improved_agent.chat(
-                    user_message=user_message,
-                    polygon_coords=self.context_data.get('polygon'),
-                    start_date=self.context_data.get('start_date'),
-                    end_date=self.context_data.get('end_date'),
-                    geojson_data=self.context_data.get('geojson_data')
-                )
-        except Exception as e:
-            print(f"⚠️ Fallback para chat simples: {e}")
-        
-        # Fallback: chat simples sem function calling
-        full_message = f"""
+        # Montar prompt completo com system instruction e contexto
+        full_prompt = f"""{self.system_instruction}
+
 **CONTEXTO ATUAL:**
 {context_summary}
 
@@ -194,16 +178,52 @@ class SacyChatAgent:
 """
         
         try:
-            response = self.chat_session.send_message(full_message)
-            return response.text
+            # Usar ADK para gerar resposta
+            # Adicionar mensagem do usuário ao histórico
+            user_content = types.Content(
+                role="user",
+                parts=[types.Part(text=full_prompt)]
+            )
+            
+            # Gerar resposta usando ADK
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash-exp',
+                contents=[user_content] + self.chat_history,
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    top_p=0.95,
+                    top_k=40,
+                    max_output_tokens=2048,
+                )
+            )
+            
+            # Extrair texto da resposta
+            response_text = response.text
+            
+            # Atualizar histórico
+            self.chat_history.append(user_content)
+            self.chat_history.append(types.Content(
+                role="model",
+                parts=[types.Part(text=response_text)]
+            ))
+            
+            # Manter histórico limitado (últimas 20 mensagens)
+            if len(self.chat_history) > 20:
+                self.chat_history = self.chat_history[-20:]
+            
+            return response_text
+            
         except Exception as e:
-            return f"❌ **ERRO:** {str(e)}\n\nVerifique sua chave de API Google."
+            error_msg = str(e)
+            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                return "⏳ **Sistema temporariamente ocupado.** Por favor, aguarde alguns segundos e tente novamente. O ADK está processando muitas requisições."
+            return f"❌ **ERRO:** {error_msg}\n\nVerifique sua configuração."
 
 # Instância global
 print("🔄 Tentando inicializar Sacy Chat Agent...")
 try:
     sacy_chat_agent = SacyChatAgent()
-    print("✅ Sacy Chat Agent inicializado!")
+    print("✅ Sacy Chat Agent inicializado com ADK!")
 except Exception as e:
     print(f"⚠️ Aviso: Não foi possível inicializar Sacy Chat: {e}")
     import traceback
