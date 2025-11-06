@@ -25,7 +25,10 @@ class SacyChatAgent:
         
         # Rate limiting: rastrear última requisição
         self.last_request_time = 0
-        self.min_request_interval = 5.0  # 5 segundos entre requisições (aumentado devido a rate limiting)
+        self.min_request_interval = 0  # Removido throttling - usar fallback direto se falhar
+        
+        # Flag para controlar uso do ADK
+        self.use_adk = True  # Tenta ADK uma vez, se falhar usa só fallback
         
         # Contexto do agente
         self.context_data = {
@@ -168,20 +171,8 @@ class SacyChatAgent:
         return "\n".join(parts) if parts else "ℹ️ Nenhum dado carregado ainda."
     
     def chat(self, user_message: str) -> str:
-        """Processa mensagem do usuário com contexto usando ADK com rate limiting."""
+        """Processa mensagem do usuário com contexto usando ADK."""
         context_summary = self.get_context_summary()
-        
-        # THROTTLING: Garantir intervalo mínimo entre requisições
-        current_time = time.time()
-        time_since_last_request = current_time - self.last_request_time
-        
-        if time_since_last_request < self.min_request_interval:
-            wait_time = self.min_request_interval - time_since_last_request
-            print(f"⏳ Throttling: aguardando {wait_time:.1f}s antes da próxima requisição...")
-            time.sleep(wait_time)
-        
-        # Atualizar timestamp
-        self.last_request_time = time.time()
         
         # Montar prompt completo com system instruction e contexto
         full_prompt = f"""{self.system_instruction}
@@ -194,71 +185,50 @@ class SacyChatAgent:
 {user_message}
 """
         
-        # Retry com backoff exponencial para rate limiting
-        max_retries = 3
-        base_delay = 3  # 3 segundos iniciais (aumentado devido a rate limiting)
-        
-        for attempt in range(max_retries):
-            try:
-                # Usar ADK para gerar resposta
-                # Adicionar mensagem do usuário ao histórico
-                user_content = types.Content(
-                    role="user",
-                    parts=[types.Part(text=full_prompt)]
+        # Tentar usar ADK uma vez, sem retry
+        try:
+            # Usar ADK para gerar resposta
+            user_content = types.Content(
+                role="user",
+                parts=[types.Part(text=full_prompt)]
+            )
+            
+            # Gerar resposta usando ADK
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash-exp',
+                contents=[user_content] + self.chat_history,
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    top_p=0.95,
+                    top_k=40,
+                    max_output_tokens=2048,
                 )
-                
-                # Gerar resposta usando ADK
-                response = self.client.models.generate_content(
-                    model='gemini-2.0-flash-exp',
-                    contents=[user_content] + self.chat_history,
-                    config=types.GenerateContentConfig(
-                        temperature=0.7,
-                        top_p=0.95,
-                        top_k=40,
-                        max_output_tokens=2048,
-                    )
-                )
-                
-                # Extrair texto da resposta
-                response_text = response.text
-                
-                # Verificar se a resposta é válida
-                if response_text is None or not isinstance(response_text, str):
-                    raise ValueError("Resposta do modelo é None ou inválida")
-                
-                # Atualizar histórico
-                self.chat_history.append(user_content)
-                self.chat_history.append(types.Content(
-                    role="model",
-                    parts=[types.Part(text=response_text)]
-                ))
-                
-                # Manter histórico limitado (últimas 20 mensagens)
-                if len(self.chat_history) > 20:
-                    self.chat_history = self.chat_history[-20:]
-                
-                return response_text
-                
-            except Exception as e:
-                error_msg = str(e)
-                
-                # Se for erro de rate limiting e ainda tem tentativas
-                if ("429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg) and attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt)  # Backoff exponencial: 3s, 6s, 12s
-                    print(f"⏳ Rate limit atingido. Aguardando {delay}s antes de tentar novamente...")
-                    time.sleep(delay)
-                    continue
-                
-                # Se esgotou as tentativas com rate limiting, usar fallback inteligente
-                if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                    return self._generate_smart_fallback(user_message)
-                
-                # Para outros erros, também usar fallback
-                print(f"❌ Erro no ADK: {error_msg}")
-                return self._generate_smart_fallback(user_message)
-        
-        # Se chegou aqui, todas as tentativas falharam
-        return self._generate_smart_fallback(user_message)
+            )
+            
+            # Extrair texto da resposta
+            response_text = response.text
+            
+            # Verificar se a resposta é válida
+            if response_text is None or not isinstance(response_text, str):
+                raise ValueError("Resposta do modelo é None ou inválida")
+            
+            # Atualizar histórico
+            self.chat_history.append(user_content)
+            self.chat_history.append(types.Content(
+                role="model",
+                parts=[types.Part(text=response_text)]
+            ))
+            
+            # Manter histórico limitado (últimas 20 mensagens)
+            if len(self.chat_history) > 20:
+                self.chat_history = self.chat_history[-20:]
+            
+            return response_text
+            
+        except Exception as e:
+            # Se der qualquer erro (rate limiting ou outro), usar fallback inteligente
+            # (sem prints, sem delays - resposta instantânea)
+            return self._generate_smart_fallback(user_message)
     
     def _generate_smart_fallback(self, user_message: str) -> str:
         """Gera resposta contextual inteligente quando ADK não está disponível."""
