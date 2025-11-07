@@ -9,6 +9,7 @@ import ChatPanel from "./components/ChatPanel";
 import Loading3D from "./components/Loading3D";
 import IntroSlides from "./components/IntroSlides";
 import HyperspaceTransition from "./components/HyperspaceTransition";
+import BeeTutorial from "./components/BeeTutorial";
 
 // Error Boundary simples
 class ErrorBoundary extends Component<
@@ -136,8 +137,9 @@ function DrawControl({ onPolygonCreated, clearSignal }: { onPolygonCreated: (coo
 
 // Componente Principal
 export default function App() {
-  // Navigation state: 'loading1' | 'slides' | 'hyperspace' | 'app'
-  const [appState, setAppState] = useState<'loading1' | 'slides' | 'hyperspace' | 'app'>('loading1');
+  // Navigation state: 'loading1' | 'slides' | 'hyperspace' | 'app' | 'tutorial'
+  const [appState, setAppState] = useState<'loading1' | 'slides' | 'hyperspace' | 'app' | 'tutorial'>('loading1');
+  const [showTutorial, setShowTutorial] = useState(false);
   
   const mapRef = useRef<L.Map | null>(null);
   const [polygon, setPolygon] = useState<Coordinate[]>([]);
@@ -275,6 +277,19 @@ export default function App() {
 
   const handleSlidesComplete = () => {
     setAppState('hyperspace');
+    // Após hyperspace, mostrar tutorial
+    setTimeout(() => {
+      setShowTutorial(true);
+      setAppState('app');
+    }, 3000);
+  };
+
+  const handleTutorialComplete = () => {
+    setShowTutorial(false);
+  };
+
+  const handleTutorialSkip = () => {
+    setShowTutorial(false);
   };
 
   const handlePolygonCreated = (coords: Coordinate[]) => {
@@ -848,6 +863,14 @@ export default function App() {
         startDate={startDate}
         endDate={endDate}
       />
+      
+      {/* Tutorial com abelha */}
+      {showTutorial && (
+        <BeeTutorial 
+          onComplete={handleTutorialComplete}
+          onSkip={handleTutorialSkip}
+        />
+      )}
     </div>
   );
 }
