@@ -160,6 +160,8 @@ export default function App() {
   const [showImageListModal, setShowImageListModal] = useState(false);
   const [imageList, setImageList] = useState<ImageItem[]>([]);
   const [selectedLayerType, setSelectedLayerType] = useState<LayerType | null>(null);
+  const [activeTab, setActiveTab] = useState<'lista' | 'mosaicos'>('lista'); // Tab control
+  const [mosaics, setMosaics] = useState<Array<{dates: string[], startDate: string, endDate: string}>>([]);
   const [chatOpen, setChatOpen] = useState(false); // Chat panel state
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [clearSignal, setClearSignal] = useState(0);
@@ -280,6 +282,58 @@ export default function App() {
     setActiveLayers({}); // Limpa camadas ao desenhar novo polígono
   };
 
+  // Função para gerar mosaicos a partir de lista de imagens
+  const generateMosaics = (images: ImageItem[]) => {
+    const mosaicList: Array<{dates: string[], startDate: string, endDate: string}> = [];
+    const sortedImages = [...images].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    let currentMosaic: string[] = [];
+    let mosaicStartDate = '';
+    
+    for (let i = 0; i < sortedImages.length; i++) {
+      const currentDate = new Date(sortedImages[i].date);
+      
+      if (currentMosaic.length === 0) {
+        // Iniciar novo mosaico
+        currentMosaic = [sortedImages[i].date];
+        mosaicStartDate = sortedImages[i].date;
+      } else {
+        // Verificar se está dentro da tolerância de 2 meses
+        const lastDate = new Date(currentMosaic[currentMosaic.length - 1]);
+        const diffMonths = (currentDate.getFullYear() - lastDate.getFullYear()) * 12 + 
+                          (currentDate.getMonth() - lastDate.getMonth());
+        
+        if (diffMonths <= 2 && currentMosaic.length < 15) {
+          // Adicionar ao mosaico atual
+          currentMosaic.push(sortedImages[i].date);
+        } else {
+          // Salvar mosaico atual se tiver pelo menos 10 imagens
+          if (currentMosaic.length >= 10) {
+            mosaicList.push({
+              dates: [...currentMosaic],
+              startDate: mosaicStartDate,
+              endDate: currentMosaic[currentMosaic.length - 1]
+            });
+          }
+          // Iniciar novo mosaico
+          currentMosaic = [sortedImages[i].date];
+          mosaicStartDate = sortedImages[i].date;
+        }
+      }
+    }
+    
+    // Adicionar último mosaico se tiver pelo menos 10 imagens
+    if (currentMosaic.length >= 10) {
+      mosaicList.push({
+        dates: [...currentMosaic],
+        startDate: mosaicStartDate,
+        endDate: currentMosaic[currentMosaic.length - 1]
+      });
+    }
+    
+    return mosaicList;
+  };
+
   const handleToggleLayer = async (layerType: LayerType) => {
     if (activeLayers[layerType]) {
       // Camada está ativa, então desativa
@@ -313,6 +367,11 @@ export default function App() {
       if (data.images && data.images.length > 0) {
         setImageList(data.images);
         setSelectedLayerType(layerType);
+        
+        // Gerar mosaicos automaticamente
+        const generatedMosaics = generateMosaics(data.images);
+        setMosaics(generatedMosaics);
+        
         setShowImageListModal(true);
       } else {
         alert(`Nenhuma imagem encontrada para ${layerType} no período selecionado. Tente aumentar o intervalo de datas ou a tolerância de nuvens.`);
@@ -600,55 +659,180 @@ export default function App() {
       </main>
 
       {showImageListModal && selectedLayerType && (
-        <div className="ai-modal-overlay" onClick={() => setShowImageListModal(false)}>
-          <div className="ai-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+        <div className="ai-modal-overlay" onClick={() => { setShowImageListModal(false); setActiveTab('lista'); }}>
+          <div className="ai-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
             <div className="ai-modal-header">
               <h2><i className="icofont-satellite"></i> Imagens Disponíveis - {layerDefs[selectedLayerType].name}</h2>
-              <button className="close-btn" onClick={() => setShowImageListModal(false)}>✕</button>
+              <button className="close-btn" onClick={() => { setShowImageListModal(false); setActiveTab('lista'); }}>✕</button>
             </div>
+            
+            {/* Tabs */}
+            <div style={{ 
+              display: 'flex', 
+              borderBottom: '2px solid var(--neon-cyan)', 
+              marginBottom: '15px',
+              gap: '10px'
+            }}>
+              <button
+                onClick={() => setActiveTab('lista')}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: activeTab === 'lista' ? 'linear-gradient(135deg, #0f3460 0%, #16213e 100%)' : 'transparent',
+                  border: 'none',
+                  borderBottom: activeTab === 'lista' ? '3px solid var(--neon-cyan)' : '3px solid transparent',
+                  color: activeTab === 'lista' ? 'var(--neon-cyan)' : '#aaa',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                📋 Lista ({imageList.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('mosaicos')}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: activeTab === 'mosaicos' ? 'linear-gradient(135deg, #0f3460 0%, #16213e 100%)' : 'transparent',
+                  border: 'none',
+                  borderBottom: activeTab === 'mosaicos' ? '3px solid var(--neon-green)' : '3px solid transparent',
+                  color: activeTab === 'mosaicos' ? 'var(--neon-green)' : '#aaa',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                🗂️ Mosaicos ({mosaics.length})
+              </button>
+            </div>
+
             <div className="ai-content" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-              <p style={{ marginBottom: '15px', color: '#aaa' }}>
-                Encontradas {imageList.length} imagens. Clique para carregar:
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {imageList.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleLoadSpecificImage(img.date)}
-                    style={{
-                      padding: '12px',
-                      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                      border: '1px solid var(--neon-cyan)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.3s ease',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #16213e 0%, #0f3460 100%)';
-                      e.currentTarget.style.borderColor = 'var(--neon-blue)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
-                      e.currentTarget.style.borderColor = 'var(--neon-cyan)';
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>
-                        📅 {img.date}
+              {activeTab === 'lista' ? (
+                <>
+                  <p style={{ marginBottom: '15px', color: '#aaa' }}>
+                    Encontradas {imageList.length} imagens. Clique para carregar:
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {imageList.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleLoadSpecificImage(img.date)}
+                        style={{
+                          padding: '12px',
+                          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                          border: '1px solid var(--neon-cyan)',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all 0.3s ease',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #16213e 0%, #0f3460 100%)';
+                          e.currentTarget.style.borderColor = 'var(--neon-blue)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
+                          e.currentTarget.style.borderColor = 'var(--neon-cyan)';
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>
+                            📅 {img.date}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>
+                            {img.satellite} • Nuvens: {img.cloud_cover}%
+                          </div>
+                        </div>
+                        <i className="icofont-download" style={{ fontSize: '20px', color: 'var(--neon-green)' }}></i>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {mosaics.length > 0 ? (
+                    <>
+                      <p style={{ marginBottom: '15px', color: '#aaa' }}>
+                        {mosaics.length} mosaico(s) gerado(s) com pelo menos 10 imagens cada (tolerância: 2 meses)
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {mosaics.map((mosaic, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              padding: '15px',
+                              background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                              border: '2px solid var(--neon-green)',
+                              borderRadius: '12px',
+                              color: '#fff'
+                            }}
+                          >
+                            <div style={{ 
+                              display: 'flex', 
+                              justifyContent: 'space-between', 
+                              alignItems: 'center',
+                              marginBottom: '10px'
+                            }}>
+                              <h3 style={{ 
+                                fontSize: '18px', 
+                                fontWeight: 'bold', 
+                                color: 'var(--neon-green)',
+                                margin: 0 
+                              }}>
+                                🗂️ Mosaico #{idx + 1}
+                              </h3>
+                              <span style={{ 
+                                padding: '4px 12px', 
+                                background: 'var(--neon-green)', 
+                                color: '#000', 
+                                borderRadius: '12px',
+                                fontSize: '14px',
+                                fontWeight: 'bold'
+                              }}>
+                                {mosaic.dates.length} imagens
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#aaa', marginBottom: '8px' }}>
+                              📅 Período: {mosaic.startDate} até {mosaic.endDate}
+                            </div>
+                            <div style={{ 
+                              fontSize: '12px', 
+                              color: '#888',
+                              maxHeight: '100px',
+                              overflowY: 'auto',
+                              padding: '8px',
+                              background: 'rgba(0,0,0,0.3)',
+                              borderRadius: '4px'
+                            }}>
+                              <strong>Datas incluídas:</strong><br/>
+                              {mosaic.dates.join(', ')}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>
-                        {img.satellite} • Nuvens: {img.cloud_cover}%
-                      </div>
+                    </>
+                  ) : (
+                    <div style={{ 
+                      textAlign: 'center', 
+                      padding: '40px', 
+                      color: '#aaa' 
+                    }}>
+                      <i className="icofont-info-circle" style={{ fontSize: '48px', marginBottom: '15px', display: 'block', color: 'var(--neon-yellow)' }}></i>
+                      <p>Nenhum mosaico gerado.</p>
+                      <p style={{ fontSize: '14px', marginTop: '8px' }}>
+                        São necessárias pelo menos 10 imagens dentro de 2 meses para criar um mosaico.
+                      </p>
                     </div>
-                    <i className="icofont-download" style={{ fontSize: '20px', color: 'var(--neon-green)' }}></i>
-                  </button>
-                ))}
-              </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
