@@ -92,8 +92,16 @@ function DrawControl({ onPolygonCreated, clearSignal }: { onPolygonCreated: (coo
     map.addLayer(groupRef.current);
     const drawControl = new L.Control.Draw({
       draw: {
-        polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: "var(--neon-cyan)" } },
-        polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false,
+        polygon: { 
+          allowIntersection: false, 
+          showArea: false, // Desabilitar cálculo de área para evitar erro
+          shapeOptions: { color: "var(--neon-cyan)" } 
+        },
+        polyline: false, 
+        rectangle: false, 
+        circle: false, 
+        marker: false, 
+        circlemarker: false,
       },
       edit: { featureGroup: groupRef.current },
     });
@@ -627,7 +635,7 @@ export default function App() {
         </div>
 
         <footer className="sidebar-footer">
-          <button className="btn-ai" onClick={() => setChatOpen(true)} disabled={polygon.length < 3}>
+          <button className="btn-ai chat-toggle" onClick={() => setChatOpen(true)} disabled={polygon.length < 3}>
             <><i className="icofont-robot"></i> Chat com IA</>
           </button>
           <button className="btn-clear" onClick={handleClear} disabled={isAnythingLoading}>
@@ -637,7 +645,7 @@ export default function App() {
       </aside>
 
       <main className="main-content">
-        <MapContainer center={center as any} zoom={4} className="map" ref={mapRef}>
+        <MapContainer center={center as any} zoom={4} className="map" id="map" ref={mapRef}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
