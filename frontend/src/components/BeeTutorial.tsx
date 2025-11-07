@@ -23,27 +23,87 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
   const tutorialSteps: TutorialStep[] = [
     {
       target: '.sidebar',
-      message: "Aqui você encontra as ferramentas de desenho! 🎨 Use para desenhar polígonos, retângulos ou adicionar marcadores no mapa.",
-      position: 'right'
-    },
-    {
-      target: '.layer-buttons',
-      message: "Esses são os botões de camadas! 🛰️ Clique para carregar dados de satélite como temperatura, vegetação e água.",
+      message: "Bem-vindo ao painel de controle! 🎛️ Aqui você tem acesso a todas as ferramentas de análise geoespacial.",
       position: 'right'
     },
     {
       target: '.date-controls',
-      message: "Aqui você define as datas! 📅 Escolha o período que quer analisar - essencial para buscar imagens de satélite.",
+      message: "Aqui você define as datas! 📅 Escolha o período inicial e final para buscar imagens de satélite. Quanto maior o período, mais imagens disponíveis!",
+      position: 'right'
+    },
+    {
+      target: '.cloud-filter',
+      message: "Este é o filtro de nuvens! ☁️ Controla o percentual máximo de cobertura de nuvens aceito nas imagens. 0% = só imagens sem nuvens!",
+      position: 'right'
+    },
+    {
+      target: '.layers-grid',
+      message: "Esses são os botões de camadas de satélite! 🛰️ Cada um carrega um tipo diferente de dado: RGB (cores reais), NDVI (vegetação), NDWI (água), LST (temperatura) e muito mais!",
+      position: 'right'
+    },
+    {
+      target: 'button[data-layer="SENTINEL2_RGB"]',
+      message: "SENTINEL-2 RGB 📸 - Mostra imagens coloridas reais do satélite europeu Sentinel-2. Perfeito para ver o terreno como seus olhos veriam!",
+      position: 'right'
+    },
+    {
+      target: 'button[data-layer="LANDSAT_RGB"]',
+      message: "LANDSAT RGB 🛰️ - Imagens do satélite americano Landsat. Útil quando Sentinel não está disponível. Tem histórico desde 1970!",
+      position: 'right'
+    },
+    {
+      target: 'button[data-layer="SENTINEL1_VV"]',
+      message: "SENTINEL-1 VV 📡 - Radar de satélite que funciona dia e noite, mesmo com nuvens! Ideal para detectar mudanças e monitorar inundações.",
+      position: 'right'
+    },
+    {
+      target: 'button[data-layer="NDVI"]',
+      message: "NDVI 🌱 - Índice de Vegetação! Verde = muita vegetação saudável. Vermelho = solo exposto ou vegetação morta. Essencial para agricultura!",
+      position: 'right'
+    },
+    {
+      target: 'button[data-layer="NDWI"]',
+      message: "NDWI 💧 - Índice de Água! Azul = água. Marrom = terra. Perfeito para mapear rios, lagos e monitorar secas ou enchentes.",
+      position: 'right'
+    },
+    {
+      target: 'button[data-layer="LST"]',
+      message: "LST 🌡️ - Temperatura da Superfície! Cores quentes = áreas mais quentes. Azul = áreas frias. Analise ilhas de calor urbano!",
+      position: 'right'
+    },
+    {
+      target: 'button[data-layer="UHI"]',
+      message: "UHI 🏙️ - Ilha de Calor Urbano! Compara temperatura da cidade com áreas rurais. Vermelho = área muito mais quente que o normal.",
+      position: 'right'
+    },
+    {
+      target: 'button[data-layer="UTFVI"]',
+      message: "UTFVI 🌳🏘️ - Índice de Conforto Térmico! Combina vegetação e temperatura. Verde = confortável. Vermelho = muito quente e sem árvores!",
+      position: 'right'
+    },
+    {
+      target: 'button[data-layer="DEM"]',
+      message: "DEM 🏔️ - Modelo de Elevação! Mostra a altitude do terreno. Útil para análise de relevo, planejamento urbano e risco de deslizamento.",
+      position: 'right'
+    },
+    {
+      target: '.btn-communities',
+      message: "Carregar Comunidades 🏘️ - Busca dados de favelas e setores censitários dentro da área que você desenhou. Combine com outras camadas!",
+      position: 'right'
+    },
+    {
+      target: '.btn-clear',
+      message: "Limpar Tudo 🧹 - Remove todos os desenhos, camadas e dados do mapa. Use para recomeçar do zero!",
       position: 'right'
     },
     {
       target: '.chat-toggle',
-      message: "Esse é o botão de chat! 💬 Clique para conversar comigo e tirar dúvidas sobre os dados. Sou sua copiloto ambiental!",
+      message: "Chat com IA! 💬 Clique para conversar comigo e tirar dúvidas sobre os dados. Posso explicar índices, interpretar resultados e dar dicas!",
       position: 'left'
     },
     {
       target: '#map',
-      message: "E esse é o mapa interativo! 🗺️ Aqui você visualiza todas as camadas de dados. Zoom, arraste e explore à vontade!",
+      message: "E esse é o mapa interativo! 🗺️ Aqui você visualiza todas as camadas. Use as ferramentas de desenho no canto superior esquerdo do mapa para criar polígonos!",
       position: 'top'
     }
   ];

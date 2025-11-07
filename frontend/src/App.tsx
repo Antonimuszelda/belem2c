@@ -478,7 +478,7 @@ export default function App() {
         </header>
 
         <div className="sidebar-content">
-          <div className="control-group">
+          <div className="control-group date-controls">
             <h3><i className="icofont-ui-calendar"></i> Período</h3>
             <div className="group">
               <label>Início</label>
@@ -490,7 +490,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="control-group">
+          <div className="control-group cloud-filter">
             <h3><i className="icofont-cloud"></i> Filtro</h3>
             <div className="group">
               <label>Cobertura de Nuvem ({cloud}%)</label>
@@ -503,7 +503,12 @@ export default function App() {
             <div className="layers-grid">
               {(Object.keys(layerDefs) as LayerType[]).map(key => (
                 <div key={key} className="layer-item">
-                  <button className={`layer-btn ${activeLayers[key] ? 'active' : ''}`} onClick={() => handleToggleLayer(key)} disabled={!!loading[key]}>
+                  <button 
+                    className={`layer-btn ${activeLayers[key] ? 'active' : ''}`} 
+                    onClick={() => handleToggleLayer(key)} 
+                    disabled={!!loading[key]}
+                    data-layer={key}
+                  >
                     {loading[key] ? <div className="spinner" /> : <i className={layerDefs[key].icon} />}
                     <span>{layerDefs[key].name}</span>
                   </button>
