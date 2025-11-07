@@ -20,6 +20,7 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
   const [showMessage, setShowMessage] = useState(false);
   const [beeTrail, setBeeTrail] = useState<Array<{ x: number; y: number; id: number }>>([]);
   const [highlightStyle, setHighlightStyle] = useState<React.CSSProperties>({});
+  const [elementSnapshot, setElementSnapshot] = useState<string>('');
 
   const tutorialSteps: TutorialStep[] = [
     {
@@ -117,6 +118,9 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
       if (targetElement) {
         console.log('🎯 Tutorial Step', currentStep, '- Target:', step.target, '- Element found:', targetElement);
         
+        // Capturar "foto" do elemento
+        captureElementSnapshot(targetElement);
+        
         // Calcular posição do elemento
         const rect = targetElement.getBoundingClientRect();
         const newPos = calculateBeePosition(rect, step.position);
@@ -155,6 +159,29 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
       handleComplete();
     }
   }, [currentStep]);
+
+  const captureElementSnapshot = (element: Element) => {
+    // Clonar o elemento para captura visual
+    const clone = element.cloneNode(true) as HTMLElement;
+    clone.style.position = 'relative';
+    clone.style.margin = '0';
+    clone.style.transform = 'none';
+    
+    // Criar container temporário
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '-9999px';
+    container.appendChild(clone);
+    document.body.appendChild(container);
+    
+    // Capturar HTML do elemento
+    const snapshot = clone.outerHTML;
+    setElementSnapshot(snapshot);
+    
+    // Limpar
+    document.body.removeChild(container);
+  };
 
   const createTrail = (start: { x: number; y: number }, end: { x: number; y: number }) => {
     const trail: Array<{ x: number; y: number; id: number }> = [];
@@ -251,31 +278,62 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
     if (!targetElement) return {};
     
     const rect = targetElement.getBoundingClientRect();
+    const messageWidth = 500;
+    const messageHeight = 300;
+    let left = 0;
+    let top = 0;
     
     switch (step.position) {
       case 'right':
-        return {
-          left: `${rect.right + 150}px`,
-          top: `${rect.top + rect.height / 2 - 100}px`
-        };
+        left = rect.right + 20;
+        top = rect.top + rect.height / 2 - messageHeight / 2;
+        // Se sair da tela pela direita, posiciona à esquerda
+        if (left + messageWidth > window.innerWidth) {
+          left = rect.left - messageWidth - 20;
+        }
+        break;
       case 'left':
-        return {
-          left: `${rect.left - 470}px`,
-          top: `${rect.top + rect.height / 2 - 100}px`
-        };
+        left = rect.left - messageWidth - 20;
+        top = rect.top + rect.height / 2 - messageHeight / 2;
+        // Se sair da tela pela esquerda, posiciona à direita
+        if (left < 0) {
+          left = rect.right + 20;
+        }
+        break;
       case 'top':
-        return {
-          left: `${rect.left + rect.width / 2 - 225}px`,
-          top: `${rect.top - 280}px`
-        };
+        left = rect.left + rect.width / 2 - messageWidth / 2;
+        top = rect.top - messageHeight - 20;
+        // Se sair da tela por cima, posiciona embaixo
+        if (top < 0) {
+          top = rect.bottom + 20;
+        }
+        break;
       case 'bottom':
-        return {
-          left: `${rect.left + rect.width / 2 - 225}px`,
-          top: `${rect.bottom + 20}px`
-        };
-      default:
-        return {};
+        left = rect.left + rect.width / 2 - messageWidth / 2;
+        top = rect.bottom + 20;
+        // Se sair da tela por baixo, posiciona em cima
+        if (top + messageHeight > window.innerHeight) {
+          top = rect.top - messageHeight - 20;
+        }
+        break;
     }
+    
+    // Garantir que não saia da tela horizontalmente
+    if (left < 10) left = 10;
+    if (left + messageWidth > window.innerWidth - 10) {
+      left = window.innerWidth - messageWidth - 10;
+    }
+    
+    // Garantir que não saia da tela verticalmente
+    if (top < 10) top = 10;
+    if (top + messageHeight > window.innerHeight - 10) {
+      top = window.innerHeight - messageHeight - 10;
+    }
+    
+    return {
+      left: `${left}px`,
+      top: `${top}px`
+    };
   };
 
   return (
@@ -371,6 +429,17 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
             style={getMessagePosition()}
           >
             <div className="message-bubble">
+              {/* Preview visual do elemento destacado */}
+              {elementSnapshot && (
+                <div className="element-preview">
+                  <div className="preview-label">🔍 Olha só esse botão aqui:</div>
+                  <div 
+                    className="preview-snapshot"
+                    dangerouslySetInnerHTML={{ __html: elementSnapshot }}
+                  />
+                </div>
+              )}
+              
               <div className="message-content">
                 <p>{tutorialSteps[currentStep].message}</p>
               </div>

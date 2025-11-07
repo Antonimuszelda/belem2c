@@ -275,7 +275,7 @@
 /* ===== MENSAGEM DO TUTORIAL ===== */
 .tutorial-message {
   position: fixed;
-  max-width: 450px;
+  max-width: 500px;
   pointer-events: all;
   animation: message-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 10003;
@@ -300,6 +300,60 @@
   box-shadow: 0 10px 40px rgba(0, 255, 255, 0.4),
               0 0 20px rgba(0, 255, 255, 0.3);
   position: relative;
+}
+
+/* Preview visual do elemento */
+.element-preview {
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--neon-yellow);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.preview-label {
+  color: var(--neon-yellow);
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-align: center;
+  animation: preview-label-glow 2s ease-in-out infinite;
+}
+
+@keyframes preview-label-glow {
+  0%, 100% { text-shadow: 0 0 10px var(--neon-yellow); }
+  50% { text-shadow: 0 0 20px var(--neon-yellow), 0 0 30px var(--neon-yellow); }
+}
+
+.preview-snapshot {
+  background: linear-gradient(135deg, #0a0e27 0%, #16213e 100%);
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  box-shadow: inset 0 0 20px rgba(0, 255, 255, 0.2);
+  transform: scale(1.2);
+  animation: snapshot-zoom 3s ease-in-out infinite;
+}
+
+@keyframes snapshot-zoom {
+  0%, 100% { transform: scale(1.2); }
+  50% { transform: scale(1.25); }
+}
+
+.preview-snapshot button,
+.preview-snapshot .layer-btn,
+.preview-snapshot .control-group {
+  pointer-events: none;
+  margin: 0 auto;
+  display: block;
+}
+
+.preview-snapshot * {
+  pointer-events: none !important;
 }
 
 .message-content p {
