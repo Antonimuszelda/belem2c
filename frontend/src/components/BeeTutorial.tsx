@@ -19,6 +19,7 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
   const [isFlying, setIsFlying] = useState(false);
   const [showMessage, setShowMessage] = useState(false);
   const [beeTrail, setBeeTrail] = useState<Array<{ x: number; y: number; id: number }>>([]);
+  const [highlightStyle, setHighlightStyle] = useState<React.CSSProperties>({});
 
   const tutorialSteps: TutorialStep[] = [
     {
@@ -114,9 +115,21 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
       const targetElement = document.querySelector(step.target);
       
       if (targetElement) {
+        console.log('🎯 Tutorial Step', currentStep, '- Target:', step.target, '- Element found:', targetElement);
+        
         // Calcular posição do elemento
         const rect = targetElement.getBoundingClientRect();
         const newPos = calculateBeePosition(rect, step.position);
+        
+        // Atualizar highlight
+        const highlightPos = {
+          left: `${rect.left - 10}px`,
+          top: `${rect.top - 10}px`,
+          width: `${rect.width + 20}px`,
+          height: `${rect.height + 20}px`
+        };
+        setHighlightStyle(highlightPos);
+        console.log('✨ Highlight position:', highlightPos);
         
         // Animar voo rápido
         setIsFlying(true);
@@ -134,6 +147,8 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
           setShowMessage(true);
           setBeeTrail([]); // Limpar rastro
         }, 600);
+      } else {
+        console.warn('⚠️ Tutorial Step', currentStep, '- Target not found:', step.target);
       }
     } else if (currentStep === tutorialSteps.length) {
       // Tutorial completo - voo de saída
@@ -263,24 +278,6 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
     }
   };
 
-  const getHighlightPosition = () => {
-    if (currentStep < 0 || currentStep >= tutorialSteps.length) return {};
-    
-    const step = tutorialSteps[currentStep];
-    const targetElement = document.querySelector(step.target);
-    
-    if (!targetElement) return {};
-    
-    const rect = targetElement.getBoundingClientRect();
-    
-    return {
-      left: `${rect.left - 10}px`,
-      top: `${rect.top - 10}px`,
-      width: `${rect.width + 20}px`,
-      height: `${rect.height + 20}px`
-    };
-  };
-
   return (
     <>
       {/* Overlay escuro bloqueando interações */}
@@ -363,7 +360,7 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
         {currentStep >= 0 && currentStep < tutorialSteps.length && (
           <div 
             className="tutorial-highlight"
-            style={getHighlightPosition()}
+            style={highlightStyle}
           />
         )}
 
