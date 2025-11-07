@@ -275,9 +275,10 @@
 /* ===== MENSAGEM DO TUTORIAL ===== */
 .tutorial-message {
   position: fixed;
-  max-width: 500px;
-  max-height: calc(100vh - 40px); /* Nunca maior que a tela */
-  overflow-y: auto; /* Scroll se necessário */
+  width: 600px;
+  max-width: 90vw;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   pointer-events: all;
   animation: message-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 10003;
@@ -286,11 +287,11 @@
 @keyframes message-appear {
   from {
     opacity: 0;
-    transform: scale(0.8) translateY(-20px);
+    transform: translate(-50%, -50%) scale(0.8);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
@@ -298,73 +299,18 @@
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   border: 3px solid var(--neon-cyan);
   border-radius: 20px;
-  padding: 20px;
+  padding: 30px;
   box-shadow: 0 10px 40px rgba(0, 255, 255, 0.4),
               0 0 20px rgba(0, 255, 255, 0.3);
   position: relative;
 }
 
-/* Preview visual do elemento */
-.element-preview {
-  background: rgba(0, 0, 0, 0.5);
-  border: 2px solid var(--neon-yellow);
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 15px;
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
-}
-
-.preview-label {
-  color: var(--neon-yellow);
-  font-size: 13px;
-  font-weight: bold;
-  margin-bottom: 8px;
-  text-align: center;
-  animation: preview-label-glow 2s ease-in-out infinite;
-}
-
-@keyframes preview-label-glow {
-  0%, 100% { text-shadow: 0 0 10px var(--neon-yellow); }
-  50% { text-shadow: 0 0 20px var(--neon-yellow), 0 0 30px var(--neon-yellow); }
-}
-
-.preview-snapshot {
-  background: linear-gradient(135deg, #0a0e27 0%, #16213e 100%);
-  border-radius: 8px;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 50px;
-  max-height: 120px; /* Limitar altura do preview */
-  overflow: hidden; /* Esconder overflow */
-  box-shadow: inset 0 0 20px rgba(0, 255, 255, 0.2);
-  transform: scale(1.1);
-  animation: snapshot-zoom 3s ease-in-out infinite;
-}
-
-@keyframes snapshot-zoom {
-  0%, 100% { transform: scale(1.1); }
-  50% { transform: scale(1.15); }
-}
-
-.preview-snapshot button,
-.preview-snapshot .layer-btn,
-.preview-snapshot .control-group {
-  pointer-events: none;
-  margin: 0 auto;
-  display: block;
-}
-
-.preview-snapshot * {
-  pointer-events: none !important;
-}
-
 .message-content p {
-  font-size: 16px;
+  font-size: 18px;
   color: #fff;
-  line-height: 1.5;
-  margin: 0 0 15px 0;
+  line-height: 1.8;
+  margin: 0 0 20px 0;
+  text-align: center;
 }
 
 .message-controls {

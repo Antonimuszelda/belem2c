@@ -20,92 +20,36 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
   const [showMessage, setShowMessage] = useState(false);
   const [beeTrail, setBeeTrail] = useState<Array<{ x: number; y: number; id: number }>>([]);
   const [highlightStyle, setHighlightStyle] = useState<React.CSSProperties>({});
-  const [elementSnapshot, setElementSnapshot] = useState<string>('');
 
   const tutorialSteps: TutorialStep[] = [
     {
-      target: '.sidebar',
-      message: "Bem-vindo ao painel de controle! 🎛️ Aqui você tem acesso a todas as ferramentas de análise geoespacial.",
-      position: 'right'
-    },
-    {
       target: '.date-controls',
-      message: "Aqui você define as datas! 📅 Escolha o período inicial e final para buscar imagens de satélite. Quanto maior o período, mais imagens disponíveis!",
-      position: 'right'
-    },
-    {
-      target: '.cloud-filter',
-      message: "Este é o filtro de nuvens! ☁️ Controla o percentual máximo de cobertura de nuvens aceito nas imagens. 0% = só imagens sem nuvens!",
+      message: "📅 PASSO 1: Defina as Datas\n\nAqui você escolhe o período para buscar imagens de satélite. Quanto maior o intervalo, mais opções de imagens você terá!",
       position: 'right'
     },
     {
       target: '.layers-grid',
-      message: "Esses são os botões de camadas de satélite! 🛰️ Cada um carrega um tipo diferente de dado: RGB (cores reais), NDVI (vegetação), NDWI (água), LST (temperatura) e muito mais!",
-      position: 'right'
-    },
-    {
-      target: 'button[data-layer="SENTINEL2_RGB"]',
-      message: "SENTINEL-2 RGB 📸 - Mostra imagens coloridas reais do satélite europeu Sentinel-2. Perfeito para ver o terreno como seus olhos veriam!",
-      position: 'right'
-    },
-    {
-      target: 'button[data-layer="LANDSAT_RGB"]',
-      message: "LANDSAT RGB 🛰️ - Imagens do satélite americano Landsat. Útil quando Sentinel não está disponível. Tem histórico desde 1970!",
-      position: 'right'
-    },
-    {
-      target: 'button[data-layer="SENTINEL1_VV"]',
-      message: "SENTINEL-1 VV 📡 - Radar de satélite que funciona dia e noite, mesmo com nuvens! Ideal para detectar mudanças e monitorar inundações.",
-      position: 'right'
-    },
-    {
-      target: 'button[data-layer="NDVI"]',
-      message: "NDVI 🌱 - Índice de Vegetação! Verde = muita vegetação saudável. Vermelho = solo exposto ou vegetação morta. Essencial para agricultura!",
-      position: 'right'
-    },
-    {
-      target: 'button[data-layer="NDWI"]',
-      message: "NDWI 💧 - Índice de Água! Azul = água. Marrom = terra. Perfeito para mapear rios, lagos e monitorar secas ou enchentes.",
-      position: 'right'
-    },
-    {
-      target: 'button[data-layer="LST"]',
-      message: "LST 🌡️ - Temperatura da Superfície! Cores quentes = áreas mais quentes. Azul = áreas frias. Analise ilhas de calor urbano!",
-      position: 'right'
-    },
-    {
-      target: 'button[data-layer="UHI"]',
-      message: "UHI 🏙️ - Ilha de Calor Urbano! Compara temperatura da cidade com áreas rurais. Vermelho = área muito mais quente que o normal.",
-      position: 'right'
-    },
-    {
-      target: 'button[data-layer="UTFVI"]',
-      message: "UTFVI 🌳🏘️ - Índice de Conforto Térmico! Combina vegetação e temperatura. Verde = confortável. Vermelho = muito quente e sem árvores!",
-      position: 'right'
-    },
-    {
-      target: 'button[data-layer="DEM"]',
-      message: "DEM 🏔️ - Modelo de Elevação! Mostra a altitude do terreno. Útil para análise de relevo, planejamento urbano e risco de deslizamento.",
+      message: "🛰️ PASSO 2: Camadas de Satélite\n\nEsses botões carregam diferentes tipos de dados:\n• RGB = imagens coloridas\n• NDVI = vegetação\n• NDWI = água\n• LST = temperatura\n• DEM = elevação do terreno",
       position: 'right'
     },
     {
       target: '.btn-communities',
-      message: "Carregar Comunidades 🏘️ - Busca dados de favelas e setores censitários dentro da área que você desenhou. Combine com outras camadas!",
+      message: "️ PASSO 3: Dados Geográficos\n\nCarrega informações de comunidades, favelas e setores censitários dentro da área que você desenhar no mapa.",
       position: 'right'
     },
     {
       target: '.btn-clear',
-      message: "Limpar Tudo 🧹 - Remove todos os desenhos, camadas e dados do mapa. Use para recomeçar do zero!",
+      message: "🧹 PASSO 4: Limpar Tudo\n\nUse este botão para remover todos os desenhos e camadas do mapa quando quiser recomeçar do zero.",
       position: 'right'
     },
     {
       target: '.chat-toggle',
-      message: "Chat com IA! 💬 Clique para conversar comigo e tirar dúvidas sobre os dados. Posso explicar índices, interpretar resultados e dar dicas!",
+      message: "💬 PASSO 5: Chat com IA\n\nClique aqui para conversar comigo! Posso explicar os dados, interpretar resultados e tirar suas dúvidas sobre análise geoespacial.",
       position: 'left'
     },
     {
       target: '#map',
-      message: "E esse é o mapa interativo! 🗺️ Aqui você visualiza todas as camadas. Use as ferramentas de desenho no canto superior esquerdo do mapa para criar polígonos!",
+      message: "🗺️ PASSO 6: Mapa Interativo\n\nAqui você visualiza todas as camadas! Use as ferramentas de desenho no canto superior esquerdo para criar polígonos e delimitar áreas de interesse.",
       position: 'top'
     }
   ];
@@ -117,9 +61,6 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
       
       if (targetElement) {
         console.log('🎯 Tutorial Step', currentStep, '- Target:', step.target, '- Element found:', targetElement);
-        
-        // Capturar "foto" do elemento
-        captureElementSnapshot(targetElement);
         
         // Calcular posição do elemento
         const rect = targetElement.getBoundingClientRect();
@@ -159,29 +100,6 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
       handleComplete();
     }
   }, [currentStep]);
-
-  const captureElementSnapshot = (element: Element) => {
-    // Clonar o elemento para captura visual
-    const clone = element.cloneNode(true) as HTMLElement;
-    clone.style.position = 'relative';
-    clone.style.margin = '0';
-    clone.style.transform = 'none';
-    
-    // Criar container temporário
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '-9999px';
-    container.appendChild(clone);
-    document.body.appendChild(container);
-    
-    // Capturar HTML do elemento
-    const snapshot = clone.outerHTML;
-    setElementSnapshot(snapshot);
-    
-    // Limpar
-    document.body.removeChild(container);
-  };
 
   const createTrail = (start: { x: number; y: number }, end: { x: number; y: number }) => {
     const trail: Array<{ x: number; y: number; id: number }> = [];
@@ -270,78 +188,12 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
   };
 
   const getMessagePosition = () => {
-    if (currentStep < 0 || currentStep >= tutorialSteps.length) return {};
-    
-    const step = tutorialSteps[currentStep];
-    const targetElement = document.querySelector(step.target);
-    
-    if (!targetElement) {
-      // Se não achar o elemento, centraliza na tela
-      return {
-        left: '50%',
-        top: '50%',
-        transform: 'translate(-50%, -50%)'
-      };
-    }
-    
-    const rect = targetElement.getBoundingClientRect();
-    const messageWidth = 520; // Largura aproximada da mensagem + padding
-    const messageMinHeight = 200; // Altura mínima estimada
-    const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
-    const margin = 20; // Margem das bordas da tela
-    
-    let left = 0;
-    let top = 0;
-    let transform = '';
-    
-    // Para elementos na sidebar (esquerda), sempre posiciona à direita
-    if (rect.left < 400) {
-      left = rect.right + margin;
-      top = Math.max(margin, Math.min(rect.top, screenHeight - messageMinHeight - margin));
-    }
-    // Para elementos no centro ou direita
-    else {
-      // Tenta posicionar à direita do elemento
-      if (rect.right + messageWidth + margin < screenWidth) {
-        left = rect.right + margin;
-        top = Math.max(margin, Math.min(rect.top, screenHeight - messageMinHeight - margin));
-      }
-      // Se não couber à direita, posiciona à esquerda
-      else if (rect.left - messageWidth - margin > 0) {
-        left = rect.left - messageWidth - margin;
-        top = Math.max(margin, Math.min(rect.top, screenHeight - messageMinHeight - margin));
-      }
-      // Se não couber em nenhum lado, centraliza horizontalmente
-      else {
-        left = screenWidth / 2;
-        top = Math.max(margin, Math.min(rect.bottom + margin, screenHeight - messageMinHeight - margin));
-        transform = 'translateX(-50%)';
-      }
-    }
-    
-    // Garantir limites da tela
-    if (left < margin) left = margin;
-    if (!transform && left + messageWidth > screenWidth - margin) {
-      left = screenWidth - messageWidth - margin;
-    }
-    if (top < margin) top = margin;
-    if (top + messageMinHeight > screenHeight - margin) {
-      top = screenHeight - messageMinHeight - margin;
-    }
-    
-    const style: React.CSSProperties = {
-      left: typeof left === 'number' ? `${left}px` : left,
-      top: typeof top === 'number' ? `${top}px` : top
+    // Sempre centraliza a mensagem na tela
+    return {
+      left: '50%',
+      top: '50%',
+      transform: 'translate(-50%, -50%)'
     };
-    
-    if (transform) {
-      style.transform = transform;
-    }
-    
-    console.log('📍 Message position:', style, 'for element at', rect);
-    
-    return style;
   };
 
   return (
@@ -437,19 +289,8 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
             style={getMessagePosition()}
           >
             <div className="message-bubble">
-              {/* Preview visual do elemento destacado */}
-              {elementSnapshot && (
-                <div className="element-preview">
-                  <div className="preview-label">🔍 Olha só esse botão aqui:</div>
-                  <div 
-                    className="preview-snapshot"
-                    dangerouslySetInnerHTML={{ __html: elementSnapshot }}
-                  />
-                </div>
-              )}
-              
               <div className="message-content">
-                <p>{tutorialSteps[currentStep].message}</p>
+                <p style={{ whiteSpace: 'pre-line' }}>{tutorialSteps[currentStep].message}</p>
               </div>
               
               <div className="message-controls">
