@@ -146,7 +146,7 @@ class LayerRequest(BaseModel):
     end_date: Optional[str] = None
     layer_type: str = Field(
         default="SENTINEL2_RGB",
-        pattern="^(SENTINEL2_RGB|LANDSAT_RGB|SENTINEL1_VV|NDVI|NDWI|LST|UHI|UTFVI)$"
+        pattern="^(SENTINEL2_RGB|LANDSAT_RGB|SENTINEL1_VV|NDVI|NDWI|LST|UHI|UTFVI|DEM)$"
     )
     cloud_percentage: int = Field(default=20, ge=0, le=100)
     specific_date: Optional[str] = None  # Para carregar uma imagem de data específica
@@ -366,6 +366,18 @@ async def list_images(request: LayerRequest):
             )
             satellite_name = "Sentinel-1"
             cloud_property = None
+        elif request.layer_type == "DEM":
+            # DEM é estático (SRTM), retorna apenas uma "imagem" fixa
+            return ImageListResponse(
+                images=[
+                    ImageListItem(
+                        date="2000-02-11",  # Data da missão SRTM
+                        cloud_cover=0.0,
+                        satellite="SRTM (Shuttle Radar Topography Mission)"
+                    )
+                ],
+                total_found=1
+            )
         else:
             raise HTTPException(status_code=400, detail=f"Tipo de camada '{request.layer_type}' não suportado para listagem.")
         
@@ -697,6 +709,29 @@ async def get_tile(request: LayerRequest):
                 'min': -0.1, 'max': 0.1,
                 'palette': ['313695', '74add1', 'fed976', 'feb24c', 'fd8d3c', 'fc4e2a', 'e31a1c', 'b10026']
             }
+        
+        elif request.layer_type == "DEM":
+            # DEM (SRTM) - Modelo Digital de Elevação
+            dem = ee.Image("USGS/SRTMGL1_003").clip(geometry)
+            
+            # Calcular estatísticas de elevação para a área
+            stats = dem.reduceRegion(
+                reducer=ee.Reducer.minMax(),
+                geometry=geometry,
+                scale=30,
+                maxPixels=1e9,
+            ).getInfo()
+            
+            min_elev = stats.get("elevation_min", 0)
+            max_elev = stats.get("elevation_max", 3000)
+            
+            image = dem
+            vis_params = {
+                "min": min_elev,
+                "max": max_elev,
+                "palette": ["blue", "green", "yellow", "red"]
+            }
+            date_str = "2000-02-11"  # Data da missão SRTM
         
         if image is None:
             raise HTTPException(status_code=404, detail=f"Nenhuma imagem encontrada para a camada '{request.layer_type}' no período/região.")
