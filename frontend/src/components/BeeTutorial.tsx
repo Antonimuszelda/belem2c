@@ -275,65 +275,73 @@ const BeeTutorial: React.FC<BeeTutorialProps> = ({ onComplete, onSkip }) => {
     const step = tutorialSteps[currentStep];
     const targetElement = document.querySelector(step.target);
     
-    if (!targetElement) return {};
+    if (!targetElement) {
+      // Se não achar o elemento, centraliza na tela
+      return {
+        left: '50%',
+        top: '50%',
+        transform: 'translate(-50%, -50%)'
+      };
+    }
     
     const rect = targetElement.getBoundingClientRect();
-    const messageWidth = 500;
-    const messageHeight = 300;
+    const messageWidth = 520; // Largura aproximada da mensagem + padding
+    const messageMinHeight = 200; // Altura mínima estimada
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const margin = 20; // Margem das bordas da tela
+    
     let left = 0;
     let top = 0;
+    let transform = '';
     
-    switch (step.position) {
-      case 'right':
-        left = rect.right + 20;
-        top = rect.top + rect.height / 2 - messageHeight / 2;
-        // Se sair da tela pela direita, posiciona à esquerda
-        if (left + messageWidth > window.innerWidth) {
-          left = rect.left - messageWidth - 20;
-        }
-        break;
-      case 'left':
-        left = rect.left - messageWidth - 20;
-        top = rect.top + rect.height / 2 - messageHeight / 2;
-        // Se sair da tela pela esquerda, posiciona à direita
-        if (left < 0) {
-          left = rect.right + 20;
-        }
-        break;
-      case 'top':
-        left = rect.left + rect.width / 2 - messageWidth / 2;
-        top = rect.top - messageHeight - 20;
-        // Se sair da tela por cima, posiciona embaixo
-        if (top < 0) {
-          top = rect.bottom + 20;
-        }
-        break;
-      case 'bottom':
-        left = rect.left + rect.width / 2 - messageWidth / 2;
-        top = rect.bottom + 20;
-        // Se sair da tela por baixo, posiciona em cima
-        if (top + messageHeight > window.innerHeight) {
-          top = rect.top - messageHeight - 20;
-        }
-        break;
+    // Para elementos na sidebar (esquerda), sempre posiciona à direita
+    if (rect.left < 400) {
+      left = rect.right + margin;
+      top = Math.max(margin, Math.min(rect.top, screenHeight - messageMinHeight - margin));
+    }
+    // Para elementos no centro ou direita
+    else {
+      // Tenta posicionar à direita do elemento
+      if (rect.right + messageWidth + margin < screenWidth) {
+        left = rect.right + margin;
+        top = Math.max(margin, Math.min(rect.top, screenHeight - messageMinHeight - margin));
+      }
+      // Se não couber à direita, posiciona à esquerda
+      else if (rect.left - messageWidth - margin > 0) {
+        left = rect.left - messageWidth - margin;
+        top = Math.max(margin, Math.min(rect.top, screenHeight - messageMinHeight - margin));
+      }
+      // Se não couber em nenhum lado, centraliza horizontalmente
+      else {
+        left = screenWidth / 2;
+        top = Math.max(margin, Math.min(rect.bottom + margin, screenHeight - messageMinHeight - margin));
+        transform = 'translateX(-50%)';
+      }
     }
     
-    // Garantir que não saia da tela horizontalmente
-    if (left < 10) left = 10;
-    if (left + messageWidth > window.innerWidth - 10) {
-      left = window.innerWidth - messageWidth - 10;
+    // Garantir limites da tela
+    if (left < margin) left = margin;
+    if (!transform && left + messageWidth > screenWidth - margin) {
+      left = screenWidth - messageWidth - margin;
+    }
+    if (top < margin) top = margin;
+    if (top + messageMinHeight > screenHeight - margin) {
+      top = screenHeight - messageMinHeight - margin;
     }
     
-    // Garantir que não saia da tela verticalmente
-    if (top < 10) top = 10;
-    if (top + messageHeight > window.innerHeight - 10) {
-      top = window.innerHeight - messageHeight - 10;
-    }
-    
-    return {
-      left: `${left}px`,
-      top: `${top}px`
+    const style: React.CSSProperties = {
+      left: typeof left === 'number' ? `${left}px` : left,
+      top: typeof top === 'number' ? `${top}px` : top
     };
+    
+    if (transform) {
+      style.transform = transform;
+    }
+    
+    console.log('📍 Message position:', style, 'for element at', rect);
+    
+    return style;
   };
 
   return (
