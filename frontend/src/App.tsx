@@ -82,10 +82,13 @@ function daysAgoStr(n: number) {
 
 // Componente Principal
 export default function App() {
+  // Detectar mobile/tablet
+  const [isMobileDevice] = useState(() => window.innerWidth <= 768);
+  const [isTouch] = useState(isTouchDevice());
+  
   // Navigation state
   const [appState, setAppState] = useState<'loading1' | 'slides' | 'hyperspace' | 'app' | 'tutorial'>('loading1');
   const [showTutorial, setShowTutorial] = useState(false);
-  const [isTouch] = useState(isTouchDevice());
   
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -117,6 +120,7 @@ export default function App() {
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [is3DMode, setIs3DMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(isTouch);
+  const [drawMode, setDrawMode] = useState(false);
 
   // Função para formatar popups do GeoJSON
   const formatGeoJSONPopup = (properties: any): string => {
@@ -162,65 +166,146 @@ export default function App() {
     }, 3000);
   };
 
+  // Sidebar começa expandida em mobile para ser visível
+
   // Inicializar Mapbox
   useEffect(() => {
     if (appState !== 'app' || !mapContainer.current || map.current) return;
 
+    // Usar a detecção mobile já feita no estado
+    
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11', // Estilo escuro/preto
+      style: 'mapbox://styles/mapbox/dark-v11',
       center: [-47.93, -15.78],
-      zoom: 4,
+      zoom: isMobileDevice ? 3 : 4,
       pitch: 0,
       bearing: 0,
-      antialias: true
+      antialias: !isMobileDevice,
+      attributionControl: false,
+      preserveDrawingBuffer: false,
+      refreshExpiredTiles: false,
+      maxZoom: isMobileDevice ? 18 : 20,
+      touchPitch: false,
+      touchZoomRotate: true,
+      dragRotate: !isMobileDevice,
+      dragPan: true,
+      fadeDuration: 0,
+      crossSourceCollisions: false
     });
+    
+    // Garantir que todas as interações estão habilitadas
+    map.current.dragPan.enable();
+    if (!isMobileDevice) {
+      map.current.dragRotate.enable();
+    }
+    
+    // Desabilitar interações que causam conflito durante desenho
+    if (isMobileDevice) {
+      map.current.boxZoom.disable();
+      map.current.doubleClickZoom.disable();
+    }
 
-    // Adicionar controles com ícones visíveis
-    const nav = new mapboxgl.NavigationControl({ visualizePitch: true });
-    map.current.addControl(nav, 'top-right');
-    map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
-    map.current.addControl(new mapboxgl.ScaleControl(), 'bottom-right');
+    // Adicionar controles otimizados para mobile
+    if (!isMobileDevice) {
+      const nav = new mapboxgl.NavigationControl({ visualizePitch: true });
+      map.current.addControl(nav, 'top-right');
+      map.current.addControl(new mapboxgl.ScaleControl(), 'bottom-right');
+    } else {
+      // Controles simplificados para mobile
+      const nav = new mapboxgl.NavigationControl({ 
+        showCompass: false, 
+        showZoom: true, 
+        visualizePitch: false 
+      });
+      map.current.addControl(nav, 'top-right');
+    }
+    
+    // Fullscreen apenas em mobile
+    if (isMobileDevice) {
+      map.current.addControl(new mapboxgl.FullscreenControl(), 'top-left');
+    }
 
-    // Adicionar Draw control
+    // Adicionar Draw control otimizado para touch
+    
     draw.current = new MapboxDraw({
       displayControlsDefault: false,
-      controls: {
-        polygon: true,
-        trash: true
-      },
-      defaultMode: 'draw_polygon',
+      controls: {},
+      defaultMode: 'simple_select',
+      touchEnabled: true,
+      touchBuffer: isMobileDevice ? 25 : 12,
+      clickBuffer: isMobileDevice ? 20 : 5,
+      // Estilos simplificados para melhor performance
       styles: [
-        // Estilo para polígonos sendo desenhados
         {
-          'id': 'gl-draw-polygon-fill',
+          'id': 'gl-draw-polygon-fill-inactive',
           'type': 'fill',
+          'filter': ['all', ['==', 'active', 'false'], ['==', '$type', 'Polygon']],
           'paint': {
             'fill-color': '#00e5ff',
-            'fill-opacity': 0.1
+            'fill-opacity': 0.2
           }
         },
         {
-          'id': 'gl-draw-polygon-stroke-active',
-          'type': 'line',
+          'id': 'gl-draw-polygon-fill-active',
+          'type': 'fill',
+          'filter': ['all', ['==', 'active', 'true'], ['==', '$type', 'Polygon']],
           'paint': {
-            'line-color': '#00e5ff',
-            'line-width': 3
+            'fill-color': '#00e5ff',
+            'fill-opacity': 0.15
           }
         },
         {
-          'id': 'gl-draw-line',
+          'id': 'gl-draw-polygon-stroke-inactive',
           'type': 'line',
+          'filter': ['all', ['==', 'active', 'false'], ['==', '$type', 'Polygon']],
           'paint': {
             'line-color': '#00e5ff',
             'line-width': 2
           }
         },
         {
+          'id': 'gl-draw-polygon-stroke-active',
+          'type': 'line',
+          'filter': ['all', ['==', 'active', 'true'], ['==', '$type', 'Polygon']],
+          'paint': {
+            'line-color': '#00e5ff',
+            'line-width': isMobileDevice ? 5 : 3
+          }
+        },
+        {
+          'id': 'gl-draw-line-inactive',
+          'type': 'line',
+          'filter': ['all', ['==', 'active', 'false'], ['==', '$type', 'LineString']],
+          'paint': {
+            'line-color': '#00e5ff',
+            'line-width': 2
+          }
+        },
+        {
+          'id': 'gl-draw-line-active',
+          'type': 'line',
+          'filter': ['all', ['==', 'active', 'true'], ['==', '$type', 'LineString']],
+          'paint': {
+            'line-color': '#00e5ff',
+            'line-width': isMobileDevice ? 4 : 3
+          }
+        },
+        {
+          'id': 'gl-draw-polygon-and-line-vertex-inactive',
+          'type': 'circle',
+          'filter': ['all', ['==', 'meta', 'vertex'], ['==', '$type', 'Point'], ['==', 'active', 'false']],
+          'paint': {
+            'circle-radius': isMobileDevice ? 8 : 5,
+            'circle-color': '#fff'
+          }
+        },
+        {
           'id': 'gl-draw-polygon-and-line-vertex-active',
           'type': 'circle',
+          'filter': ['all', ['==', 'meta', 'vertex'], ['==', '$type', 'Point'], ['==', 'active', 'true']],
           'paint': {
-            'circle-radius': 6,
+            'circle-radius': isMobileDevice ? 12 : 7,
             'circle-color': '#00e5ff'
           }
         }
@@ -228,25 +313,48 @@ export default function App() {
     });
     map.current.addControl(draw.current as any, 'top-left');
 
-    // Event listeners para desenho
-    map.current.on('draw.create', updatePolygon);
-    map.current.on('draw.update', updatePolygon);
+    // Event listeners para desenho com debounce para prevenir travamentos
+    let updateTimeout: number;
+    const debouncedUpdate = () => {
+      clearTimeout(updateTimeout);
+      updateTimeout = window.setTimeout(() => updatePolygon(), 100);
+    };
+    
+    // Ao criar polígono, voltar para modo seleção
+    map.current.on('draw.create', () => {
+      updatePolygon();
+      // Sair do modo desenho automaticamente
+      setTimeout(() => {
+        if (draw.current && map.current) {
+          const canvas = map.current.getCanvasContainer();
+          draw.current.changeMode('simple_select');
+          map.current.dragPan.enable();
+          map.current.touchZoomRotate.enable();
+          canvas.classList.remove('mode-draw');
+          setDrawMode(false);
+        }
+      }, 100);
+    });
+    
+    map.current.on('draw.update', debouncedUpdate);
     map.current.on('draw.delete', () => setPolygon([]));
 
-    // Quando carregar, adicionar terreno 3D e prédios 3D
+    // Quando carregar, adicionar terreno 3D e prédios 3D (se não for mobile)
     map.current.on('load', () => {
       if (!map.current) return;
       
-      // Adicionar fonte de terreno
-      map.current.addSource('mapbox-dem', {
-        'type': 'raster-dem',
-        'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-        'tileSize': 512,
-        'maxzoom': 14
-      });
-      
-      // Configurar terreno 3D (inicialmente pitch 0, mas terreno habilitado)
-      map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+      // Terreno 3D apenas em desktop para melhor performance
+      if (!isMobileDevice) {
+        map.current.addSource('mapbox-dem', {
+          'type': 'raster-dem',
+          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          'tileSize': 512,
+          'maxzoom': 14
+        });
+        
+        // Configurar terreno 3D (inicialmente pitch 0, mas terreno habilitado)
+        map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+      }
       
       // Adicionar layer de sky para melhor visual 3D
       map.current.addLayer({
@@ -259,45 +367,67 @@ export default function App() {
         }
       });
 
-      // Adicionar prédios 3D (casinhas)
-      const layers = map.current.getStyle().layers;
-      const labelLayerId = layers.find(
-        (layer: any) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
-      )?.id;
+      // Adicionar prédios 3D (casinhas) - apenas em desktop
+      if (!isMobileDevice) {
+        const layers = map.current.getStyle().layers;
+        const labelLayerId = layers.find(
+          (layer: any) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
+        )?.id;
 
-      map.current.addLayer(
-        {
-          'id': '3d-buildings',
-          'source': 'composite',
-          'source-layer': 'building',
-          'filter': ['==', 'extrude', 'true'],
-          'type': 'fill-extrusion',
-          'minzoom': 15,
-          'paint': {
-            'fill-extrusion-color': '#aaa',
-            'fill-extrusion-height': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              15,
-              0,
-              15.05,
-              ['get', 'height']
-            ],
-            'fill-extrusion-base': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              15,
-              0,
-              15.05,
-              ['get', 'min_height']
-            ],
-            'fill-extrusion-opacity': 0.6
+        map.current.addLayer(
+          {
+            'id': '3d-buildings',
+            'source': 'composite',
+            'source-layer': 'building',
+            'filter': ['==', 'extrude', 'true'],
+            'type': 'fill-extrusion',
+            'minzoom': 15,
+            'paint': {
+              'fill-extrusion-color': '#aaa',
+              'fill-extrusion-height': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                15,
+                0,
+                15.05,
+                ['get', 'height']
+              ],
+              'fill-extrusion-base': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                15,
+                0,
+                15.05,
+                ['get', 'min_height']
+              ],
+              'fill-extrusion-opacity': 0.6
+            }
+          },
+          labelLayerId
+        );
+      }
+      
+      // Otimizações de performance para mobile
+      if (isMobileDevice && map.current) {
+        map.current.setRenderWorldCopies(false);
+      }
+      
+      // Adicionar indicador visual quando mapa está processando
+      if (map.current) {
+        map.current.on('dataloading', () => {
+          if (mapContainer.current) {
+            mapContainer.current.style.cursor = 'wait';
           }
-        },
-        labelLayerId
-      );
+        });
+        
+        map.current.on('idle', () => {
+          if (mapContainer.current) {
+            mapContainer.current.style.cursor = '';
+          }
+        });
+      }
     });
 
     return () => {
@@ -319,9 +449,50 @@ export default function App() {
     }
   };
 
+  // Toggle Draw Mode
+  const toggleDrawMode = () => {
+    if (!draw.current || !map.current) return;
+    
+    const canvas = map.current.getCanvasContainer();
+    
+    if (drawMode) {
+      // Desativar modo desenho
+      draw.current.changeMode('simple_select');
+      map.current.dragPan.enable();
+      map.current.touchZoomRotate.enable();
+      canvas.classList.remove('mode-draw');
+      setDrawMode(false);
+    } else {
+      // Desativar 3D se estiver ativo (conflito)
+      if (is3DMode) {
+        map.current.easeTo({
+          pitch: 0,
+          bearing: 0,
+          duration: 500
+        });
+        setIs3DMode(false);
+      }
+      
+      // Ativar modo desenho
+      draw.current.changeMode('draw_polygon');
+      map.current.dragPan.disable();
+      canvas.classList.add('mode-draw');
+      setDrawMode(true);
+    }
+  };
+
   // Toggle 3D Mode
   const toggle3DMode = () => {
     if (!map.current) return;
+    
+    // Se estiver em modo desenho, desativar primeiro
+    if (drawMode && draw.current) {
+      const canvas = map.current.getCanvasContainer();
+      draw.current.changeMode('simple_select');
+      map.current.dragPan.enable();
+      canvas.classList.remove('mode-draw');
+      setDrawMode(false);
+    }
     
     if (is3DMode) {
       // Voltar para 2D
@@ -332,9 +503,17 @@ export default function App() {
       });
       setIs3DMode(false);
     } else {
-      // Ativar 3D
+      // Ativar 3D com pitch reduzido em mobile para performance
+      const targetPitch = isMobileDevice ? 45 : 60;
+      
+      // Garantir que dragPan e dragRotate estão habilitados para 3D
+      map.current.dragPan.enable();
+      if (!isMobileDevice) {
+        map.current.dragRotate.enable();
+      }
+      
       map.current.easeTo({
-        pitch: 60,
+        pitch: targetPitch,
         bearing: 0,
         duration: 1000
       });
@@ -679,26 +858,6 @@ export default function App() {
   return (
     <div className={`app ${isTouch ? 'touch-device' : 'desktop-device'}`}>
       <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
-        {isTouch && (
-          <button 
-            className="sidebar-toggle"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            style={{
-              position: 'absolute',
-              top: '10px',
-              right: '-40px',
-              width: '40px',
-              height: '40px',
-              background: 'var(--neon-cyan)',
-              border: 'none',
-              borderRadius: '0 8px 8px 0',
-              cursor: 'pointer',
-              zIndex: 1000
-            }}
-          >
-            {sidebarCollapsed ? '▶' : '◀'}
-          </button>
-        )}
         
         <header className="sidebar-header">
           <h1>HARP-IA</h1>
@@ -773,6 +932,37 @@ export default function App() {
         </div>
 
         <footer className="sidebar-footer">
+          {isMobileDevice && (
+            <button 
+              className="sidebar-toggle-mobile"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            >
+              {sidebarCollapsed ? '▲ Expandir Painel' : '▼ Recolher Painel'}
+            </button>
+          )}
+          <button 
+            className="btn-draw" 
+            onClick={toggleDrawMode}
+            style={{
+              width: '100%',
+              marginBottom: '10px',
+              background: drawMode ? 'linear-gradient(135deg, #00e5ff 0%, #00b8d4 100%)' : 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
+              padding: '12px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            <i className={drawMode ? 'icofont-check-circled' : 'icofont-ui-edit'}></i> 
+            {drawMode ? 'Finalizar Desenho' : 'Desenhar Polígono'}
+          </button>
           <button 
             className="btn-3d" 
             onClick={toggle3DMode}
