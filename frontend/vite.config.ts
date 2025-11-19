@@ -7,9 +7,27 @@ export default defineConfig({
   // FIX: Adiciona a base para deploys de subdiretório (como no Vercel/Railway)
   base: './', 
   
-  // FIX: O bloco optimizeDeps deve ser corrigido para evitar problemas com Leaflet
+  // FIX: Incluir dependências Mapbox e Leaflet para otimização
   optimizeDeps: {
-    // Apenas mantenha as dependências do Leaflet que você realmente usa
-    include: ['react-leaflet', 'leaflet', 'react-leaflet-draw', 'leaflet-draw'], 
+    include: [
+      'react-leaflet', 
+      'leaflet', 
+      'react-leaflet-draw', 
+      'leaflet-draw',
+      'mapbox-gl',
+      '@mapbox/mapbox-gl-draw'
+    ], 
   },
+  
+  // Garantir que Mapbox CSS seja incluído no build
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'mapbox-gl': ['mapbox-gl'],
+          'mapbox-draw': ['@mapbox/mapbox-gl-draw']
+        }
+      }
+    }
+  }
 });

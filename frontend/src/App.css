@@ -667,3 +667,321 @@ button:disabled {
   transform: scale(1.1);
 }
 
+/* ========================================
+   🗺️ MAPBOX GL STYLES
+   ======================================== */
+
+.mapboxgl-popup-content {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  padding: 0;
+  overflow: hidden;
+  max-width: 400px;
+}
+
+.mapboxgl-popup-close-button {
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  right: 8px;
+  top: 8px;
+}
+
+.mapboxgl-popup-close-button:hover {
+  background: rgba(0, 0, 0, 0.4);
+  transform: scale(1.1);
+}
+
+/* Controles do Mapbox - CORRIGIDO para visibilidade */
+.mapboxgl-ctrl-group {
+  background: rgba(0, 0, 0, 0.8) !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--neon-cyan) !important;
+  box-shadow: 0 0 20px var(--neon-cyan-glow) !important;
+}
+
+.mapboxgl-ctrl-group button {
+  background: transparent !important;
+  border: none !important;
+  width: 30px !important;
+  height: 30px !important;
+  cursor: pointer !important;
+}
+
+.mapboxgl-ctrl-group button + button {
+  border-top: 1px solid rgba(0, 229, 255, 0.2) !important;
+}
+
+.mapboxgl-ctrl-group button:hover {
+  background: rgba(0, 229, 255, 0.2) !important;
+}
+
+/* Forçar ícones SVG dos controles a serem visíveis */
+.mapboxgl-ctrl-icon {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 70% !important;
+  filter: brightness(0) invert(1) !important; /* Torna ícones brancos */
+}
+
+.mapboxgl-ctrl-zoom-in .mapboxgl-ctrl-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29'%3E%3Cpath fill='%2300e5ff' d='M14.5 8.5c-.75 0-1.5.75-1.5 1.5v3h-3c-.75 0-1.5.75-1.5 1.5S9.25 16 10 16h3v3c0 .75.75 1.5 1.5 1.5S16 19.75 16 19v-3h3c.75 0 1.5-.75 1.5-1.5S19.75 13 19 13h-3v-3c0-.75-.75-1.5-1.5-1.5z'/%3E%3C/svg%3E") !important;
+}
+
+.mapboxgl-ctrl-zoom-out .mapboxgl-ctrl-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29'%3E%3Cpath fill='%2300e5ff' d='M10 13c-.75 0-1.5.75-1.5 1.5S9.25 16 10 16h9c.75 0 1.5-.75 1.5-1.5S19.75 13 19 13h-9z'/%3E%3C/svg%3E") !important;
+}
+
+.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29' fill='%2300e5ff'%3E%3Cpath d='M10.5 14l4-8 4 8h-8z'/%3E%3Cpath d='M10.5 16l4 8 4-8h-8z' fill='%23ccc'/%3E%3C/svg%3E") !important;
+}
+
+/* Controle de fullscreen */
+.mapboxgl-ctrl-fullscreen {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+  border-radius: 4px !important;
+}
+
+.mapboxgl-ctrl-fullscreen .mapboxgl-ctrl-icon {
+  filter: brightness(0) invert(1) !important;
+}
+
+.mapboxgl-ctrl-scale {
+  background: rgba(0, 0, 0, 0.8) !important;
+  border: 1px solid var(--neon-cyan) !important;
+  border-radius: 8px !important;
+  color: var(--neon-cyan) !important;
+  padding: 4px 8px !important;
+}
+
+/* Botão 3D customizado */
+.btn-3d {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-3d:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.btn-3d:active {
+  transform: translateY(0);
+}
+
+/* ========================================
+   📱 ESTILOS PARA DISPOSITIVOS TOUCH
+   ======================================== */
+
+.touch-device .sidebar {
+  width: 320px;
+  transition: transform 0.3s ease;
+}
+
+.touch-device .sidebar.collapsed {
+  transform: translateX(-320px);
+}
+
+.sidebar-toggle {
+  display: none;
+}
+
+.touch-device .sidebar-toggle {
+  display: block;
+}
+
+/* Aumentar áreas de toque em dispositivos touch */
+.touch-device .layer-btn {
+  min-height: 60px;
+  font-size: 16px;
+  padding: 15px;
+}
+
+.touch-device .btn-ai,
+.touch-device .btn-clear,
+.touch-device .btn-3d,
+.touch-device .btn-communities {
+  min-height: 50px;
+  font-size: 16px;
+}
+
+/* Controles do mapa maiores em touch */
+.touch-device .mapboxgl-ctrl-group button {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+/* Modal mais adaptado para touch */
+.touch-device .ai-modal {
+  max-width: 95% !important;
+  max-height: 90vh;
+  margin: 20px;
+}
+
+.touch-device .ai-modal-content {
+  padding: 15px;
+}
+
+/* Inputs maiores em touch */
+.touch-device input[type="date"],
+.touch-device input[type="range"] {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+/* Scrollbars customizados para touch */
+.touch-device .sidebar-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.touch-device .sidebar-content::-webkit-scrollbar-thumb {
+  background: var(--neon-cyan);
+  border-radius: 4px;
+}
+
+/* ========================================
+   💻 ESTILOS ESPECÍFICOS PARA DESKTOP
+   ======================================== */
+
+.desktop-device .sidebar-toggle {
+  display: none;
+}
+
+/* Efeitos hover mais sutis em desktop */
+.desktop-device .layer-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+/* Tooltips em desktop */
+.desktop-device .layer-btn[data-layer]::after {
+  content: attr(data-layer);
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: var(--neon-cyan);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 1000;
+}
+
+.desktop-device .layer-btn[data-layer]:hover::after {
+  opacity: 1;
+}
+
+/* ========================================
+   📐 RESPONSIVIDADE ADICIONAL
+   ======================================== */
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 280px;
+  }
+  
+  .sidebar-header h1 {
+    font-size: 24px;
+  }
+  
+  .layers-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .ai-modal {
+    max-width: 95% !important;
+    margin: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 60vh;
+  }
+  
+  .touch-device .sidebar.collapsed {
+    transform: translateY(-100%);
+  }
+  
+  .sidebar-toggle {
+    right: auto;
+    bottom: -40px;
+    top: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 0 0 8px 8px;
+  }
+  
+  .main-content {
+    height: 100vh;
+  }
+}
+
+/* ========================================
+   ♿ ACESSIBILIDADE
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus visible para navegação por teclado */
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
+
+/* Alto contraste */
+@media (prefers-contrast: high) {
+  :root {
+    --neon-cyan: #00ffff;
+    --neon-green: #00ff00;
+    --neon-blue: #0000ff;
+    --neon-red: #ff0000;
+  }
+  
+  .layer-btn,
+  .btn-ai,
+  .btn-clear,
+  .btn-3d {
+    border: 2px solid currentColor;
+  }
+}
+

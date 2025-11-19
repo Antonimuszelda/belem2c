@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, Component } from "react";
-import { MapContainer, TileLayer, FeatureGroup, Polygon, useMap, GeoJSON } from "react-leaflet";
-import * as L from "leaflet";
-import "leaflet-draw/dist/leaflet.draw.css";
-import "leaflet-draw";
+import { useEffect, useRef, useState, Component } from "react";
+import mapboxgl from 'mapbox-gl';
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 import "./App.css";
 import ChatPanel from "./components/ChatPanel";
@@ -10,6 +10,9 @@ import Loading3D from "./components/Loading3D";
 import IntroSlides from "./components/IntroSlides";
 import HyperspaceTransition from "./components/HyperspaceTransition";
 import BeeTutorial from "./components/BeeTutorial";
+
+// Mapbox Token
+mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmV3b2J4IiwiYSI6ImNtMWh2MXZ5eDBqNnQyeG9za2R1N2lwc2YifQ.7yCrlwa4nNFKpg2TcQoFQg';
 
 // Error Boundary simples
 class ErrorBoundary extends Component<
@@ -52,19 +55,6 @@ class ErrorBoundary extends Component<
   }
 }
 
-// Fix para os ícones padrão do Leaflet
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41]
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
-
 // Tipos
 type Coordinate = { lat: number; lng: number };
 type LayerType = "SENTINEL2_RGB" | "LANDSAT_RGB" | "SENTINEL1_VV" | "NDVI" | "NDWI" | "LST" | "UHI" | "UTFVI" | "DEM";
@@ -72,6 +62,13 @@ type ActiveLayers = Partial<Record<LayerType, string>>;
 type ImageItem = { date: string; cloud_cover: number; satellite: string };
 
 const API_BASE = (import.meta as any).env.VITE_API_URL || "http://127.0.0.1:8000";
+
+// Detectar dispositivos touch
+const isTouchDevice = () => {
+  return (('ontouchstart' in window) ||
+     (navigator.maxTouchPoints > 0) ||
+     ((navigator as any).msMaxTouchPoints > 0));
+};
 
 // Funções Utilitárias
 function todayStr() {
@@ -83,73 +80,17 @@ function daysAgoStr(n: number) {
   return d.toISOString().slice(0, 10);
 }
 
-// Componente de Desenho no Mapa
-function DrawControl({ onPolygonCreated, clearSignal }: { onPolygonCreated: (coords: Coordinate[]) => void; clearSignal: number; }) {
-  const map = useMap();
-  const groupRef = useRef<L.FeatureGroup>(new L.FeatureGroup());
-
-  useEffect(() => {
-    map.addLayer(groupRef.current);
-    const drawControl = new L.Control.Draw({
-      draw: {
-        polygon: { 
-          allowIntersection: false, 
-          showArea: false, // Desabilitar cálculo de área para evitar erro
-          shapeOptions: { color: "var(--neon-cyan)" } 
-        },
-        polyline: false, 
-        rectangle: false, 
-        circle: false, 
-        marker: false, 
-        circlemarker: false,
-      },
-      edit: { featureGroup: groupRef.current },
-    });
-    map.addControl(drawControl as any);
-
-    const onCreated = (e: L.LeafletEvent & { layer: L.Layer }) => {
-      const layer = e.layer as L.Polygon;
-      groupRef.current.clearLayers();
-      groupRef.current.addLayer(layer);
-      const latlngs = (layer.getLatLngs()[0] as L.LatLng[]).map(p => ({ lat: p.lat, lng: p.lng }));
-      onPolygonCreated(latlngs);
-    };
-
-    const onEdited = (e: any) => {
-      e.layers.eachLayer((layer: L.Layer) => {
-        const poly = layer as L.Polygon;
-        const latlngs = (poly.getLatLngs()[0] as L.LatLng[]).map(p => ({ lat: p.lat, lng: p.lng }));
-        onPolygonCreated(latlngs);
-      });
-    };
-
-    map.on("draw:created" as any, onCreated);
-    map.on("draw:edited" as any, onEdited);
-
-    return () => {
-      map.off("draw:created" as any, onCreated);
-      map.off("draw:edited" as any, onEdited);
-      if (map.hasLayer(groupRef.current)) {
-        map.removeControl(drawControl as any);
-        map.removeLayer(groupRef.current);
-      }
-    };
-  }, [map, onPolygonCreated]);
-
-  useEffect(() => {
-    if (clearSignal > 0) groupRef.current.clearLayers();
-  }, [clearSignal]);
-
-  return null;
-}
-
 // Componente Principal
 export default function App() {
-  // Navigation state: 'loading1' | 'slides' | 'hyperspace' | 'app' | 'tutorial'
+  // Navigation state
   const [appState, setAppState] = useState<'loading1' | 'slides' | 'hyperspace' | 'app' | 'tutorial'>('loading1');
   const [showTutorial, setShowTutorial] = useState(false);
+  const [isTouch] = useState(isTouchDevice());
   
-  const mapRef = useRef<L.Map | null>(null);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const draw = useRef<MapboxDraw | null>(null);
+  
   const [polygon, setPolygon] = useState<Coordinate[]>([]);
   const [startDate, setStartDate] = useState(daysAgoStr(365));
   const [endDate, setEndDate] = useState(todayStr());
@@ -166,113 +107,43 @@ export default function App() {
     UTFVI: 0.8,
     DEM: 0.6,
   });
-  const [geojsonLayerData, setGeojsonLayerData] = useState<any>(null); // GeoJSON layer to render
+  const [geojsonLayerData, setGeojsonLayerData] = useState<any>(null);
   const [showImageListModal, setShowImageListModal] = useState(false);
   const [imageList, setImageList] = useState<ImageItem[]>([]);
   const [selectedLayerType, setSelectedLayerType] = useState<LayerType | null>(null);
-  const [activeTab, setActiveTab] = useState<'lista' | 'mosaicos'>('lista'); // Tab control
+  const [activeTab, setActiveTab] = useState<'lista' | 'mosaicos'>('lista');
   const [mosaics, setMosaics] = useState<Array<{dates: string[], startDate: string, endDate: string}>>([]);
-  const [chatOpen, setChatOpen] = useState(false); // Chat panel state
+  const [chatOpen, setChatOpen] = useState(false);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
-  const [clearSignal, setClearSignal] = useState(0);
+  const [is3DMode, setIs3DMode] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(isTouch);
 
-  const center = useMemo(() => ({ lat: -15.78, lng: -47.93 }), []);
-
-  // Função para formatar e traduzir propriedades do GeoJSON
+  // Função para formatar popups do GeoJSON
   const formatGeoJSONPopup = (properties: any): string => {
     const translations: Record<string, string> = {
-      // FCUs
-      'cd_fcu': 'Código',
-      'nm_fcu': 'Nome',
-      'cd_uf': 'Código UF',
-      'nm_uf': 'Estado',
-      'sigla_uf': 'UF',
-      'cd_mun': 'Código Município',
-      'nm_mun': 'Município',
-      'nommunic': 'Município',
-      'codagsn': 'Código',
-      'nome_agsn': 'Nome',
-      'complement': 'Complemento',
-      'ano_ref': 'Ano Referência',
-      'ano_censo': 'Ano Censo',
-      'rf': 'Regularização Fundiária',
-      'ro': 'Remoção',
-      'spe': 'Serviços Públicos',
-      'pu': 'Parcelamento Urbano',
-      'setorizado': 'Setorizado',
-      // Setores
-      'CD_MUN': 'Código Município',
-      'NM_MUN': 'Município',
-      'SIGLA_UF': 'UF',
-      'AREA_KM2': 'Área (km²)',
-      // Geral
-      'uf': 'UF',
-      'codmun': 'Código Município'
+      'cd_fcu': 'Código', 'nm_fcu': 'Nome', 'cd_uf': 'Código UF', 'nm_uf': 'Estado',
+      'sigla_uf': 'UF', 'cd_mun': 'Código Município', 'nm_mun': 'Município',
+      'nommunic': 'Município', 'codagsn': 'Código', 'nome_agsn': 'Nome',
+      'complement': 'Complemento', 'ano_ref': 'Ano Referência', 'ano_censo': 'Ano Censo',
+      'CD_MUN': 'Código Município', 'NM_MUN': 'Município', 'SIGLA_UF': 'UF', 'AREA_KM2': 'Área (km²)',
     };
 
-    const importantFields = ['nm_fcu', 'nome_agsn', 'NM_MUN', 'nm_mun', 'nommunic', 'nm_uf', 'SIGLA_UF', 'sigla_uf', 'AREA_KM2'];
+    const title = properties.nm_fcu || properties.nome_agsn || properties.NM_MUN || properties.nm_mun || 'Área';
+    let html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">`;
+    html += `<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px; font-weight: bold;">🏘️ ${title}</div>`;
     
-    let html = '<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; min-width: 200px;">';
+    Object.entries(properties).forEach(([key, value]) => {
+      if (value != null && value !== '' && !['nm_fcu', 'nome_agsn', 'NM_MUN'].includes(key)) {
+        const label = translations[key] || key;
+        html += `<div style="padding: 5px; border-bottom: 1px solid #eee;"><strong>${label}:</strong> ${value}</div>`;
+      }
+    });
     
-    // Título principal
-    const title = properties.nm_fcu || properties.nome_agsn || properties.NM_MUN || properties.nm_mun || properties.nommunic || 'Área';
-    html += `<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; margin: -13px -20px 12px -20px; border-radius: 12px 12px 0 0; font-weight: bold; font-size: 15px;">
-      🏘️ ${title}
-    </div>`;
-    
-    // Informações principais
-    const entries = Object.entries(properties)
-      .filter(([key, value]) => value != null && value !== '' && key !== 'geometry')
-      .sort((a, b) => {
-        const aImportant = importantFields.includes(a[0]) ? 0 : 1;
-        const bImportant = importantFields.includes(b[0]) ? 0 : 1;
-        return aImportant - bImportant;
-      });
-    
-    if (entries.length > 0) {
-      html += '<div style="display: grid; gap: 8px;">';
-      
-      entries.forEach(([key, value]) => {
-        if (key === 'nm_fcu' || key === 'nome_agsn' || key === 'NM_MUN') return; // Já está no título
-        
-        const label = translations[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        const displayValue = String(value);
-        
-        // Formatar valores especiais
-        let formattedValue = displayValue;
-        let icon = '📌';
-        
-        if (key.includes('area') || key.includes('AREA')) {
-          icon = '📏';
-        } else if (key.includes('mun') || key.includes('MUN')) {
-          icon = '🏙️';
-        } else if (key.includes('uf') || key.includes('UF')) {
-          icon = '🗺️';
-        } else if (key.includes('ano')) {
-          icon = '📅';
-        } else if (key.includes('cd_') || key.includes('CD_') || key.includes('cod')) {
-          icon = '🔢';
-        }
-        
-        html += `
-          <div style="display: flex; align-items: start; padding: 6px; background: rgba(102, 126, 234, 0.05); border-radius: 6px; border-left: 3px solid #667eea;">
-            <span style="margin-right: 8px;">${icon}</span>
-            <div style="flex: 1;">
-              <div style="font-size: 11px; color: #666; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">${label}</div>
-              <div style="font-size: 13px; color: #333; font-weight: 600; margin-top: 2px;">${formattedValue}</div>
-            </div>
-          </div>
-        `;
-      });
-      
-      html += '</div>';
-    }
-    
-    html += '</div>';
+    html += `</div>`;
     return html;
   };
 
-  // Navigation flow control
+  // Navigation flow
   useEffect(() => {
     if (appState === 'loading1') {
       const timer = setTimeout(() => setAppState('slides'), 3000);
@@ -285,27 +156,310 @@ export default function App() {
 
   const handleSlidesComplete = () => {
     setAppState('hyperspace');
-    // Após hyperspace, mostrar tutorial
     setTimeout(() => {
       setShowTutorial(true);
       setAppState('app');
     }, 3000);
   };
 
-  const handleTutorialComplete = () => {
-    setShowTutorial(false);
+  // Inicializar Mapbox
+  useEffect(() => {
+    if (appState !== 'app' || !mapContainer.current || map.current) return;
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/dark-v11', // Estilo escuro/preto
+      center: [-47.93, -15.78],
+      zoom: 4,
+      pitch: 0,
+      bearing: 0,
+      antialias: true
+    });
+
+    // Adicionar controles com ícones visíveis
+    const nav = new mapboxgl.NavigationControl({ visualizePitch: true });
+    map.current.addControl(nav, 'top-right');
+    map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+    map.current.addControl(new mapboxgl.ScaleControl(), 'bottom-right');
+
+    // Adicionar Draw control
+    draw.current = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: {
+        polygon: true,
+        trash: true
+      },
+      defaultMode: 'draw_polygon',
+      styles: [
+        // Estilo para polígonos sendo desenhados
+        {
+          'id': 'gl-draw-polygon-fill',
+          'type': 'fill',
+          'paint': {
+            'fill-color': '#00e5ff',
+            'fill-opacity': 0.1
+          }
+        },
+        {
+          'id': 'gl-draw-polygon-stroke-active',
+          'type': 'line',
+          'paint': {
+            'line-color': '#00e5ff',
+            'line-width': 3
+          }
+        },
+        {
+          'id': 'gl-draw-line',
+          'type': 'line',
+          'paint': {
+            'line-color': '#00e5ff',
+            'line-width': 2
+          }
+        },
+        {
+          'id': 'gl-draw-polygon-and-line-vertex-active',
+          'type': 'circle',
+          'paint': {
+            'circle-radius': 6,
+            'circle-color': '#00e5ff'
+          }
+        }
+      ]
+    });
+    map.current.addControl(draw.current as any, 'top-left');
+
+    // Event listeners para desenho
+    map.current.on('draw.create', updatePolygon);
+    map.current.on('draw.update', updatePolygon);
+    map.current.on('draw.delete', () => setPolygon([]));
+
+    // Quando carregar, adicionar terreno 3D e prédios 3D
+    map.current.on('load', () => {
+      if (!map.current) return;
+      
+      // Adicionar fonte de terreno
+      map.current.addSource('mapbox-dem', {
+        'type': 'raster-dem',
+        'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+        'tileSize': 512,
+        'maxzoom': 14
+      });
+      
+      // Configurar terreno 3D (inicialmente pitch 0, mas terreno habilitado)
+      map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+      
+      // Adicionar layer de sky para melhor visual 3D
+      map.current.addLayer({
+        'id': 'sky',
+        'type': 'sky',
+        'paint': {
+          'sky-type': 'atmosphere',
+          'sky-atmosphere-sun': [0.0, 90.0],
+          'sky-atmosphere-sun-intensity': 15
+        }
+      });
+
+      // Adicionar prédios 3D (casinhas)
+      const layers = map.current.getStyle().layers;
+      const labelLayerId = layers.find(
+        (layer: any) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
+      )?.id;
+
+      map.current.addLayer(
+        {
+          'id': '3d-buildings',
+          'source': 'composite',
+          'source-layer': 'building',
+          'filter': ['==', 'extrude', 'true'],
+          'type': 'fill-extrusion',
+          'minzoom': 15,
+          'paint': {
+            'fill-extrusion-color': '#aaa',
+            'fill-extrusion-height': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              15,
+              0,
+              15.05,
+              ['get', 'height']
+            ],
+            'fill-extrusion-base': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              15,
+              0,
+              15.05,
+              ['get', 'min_height']
+            ],
+            'fill-extrusion-opacity': 0.6
+          }
+        },
+        labelLayerId
+      );
+    });
+
+    return () => {
+      map.current?.remove();
+      map.current = null;
+    };
+  }, [appState]);
+
+  // Função para atualizar polígono
+  const updatePolygon = () => {
+    if (!draw.current) return;
+    const data = draw.current.getAll();
+    if (data.features.length > 0) {
+      const coords = (data.features[0].geometry as any).coordinates[0].map(
+        ([lng, lat]: [number, number]) => ({ lat, lng })
+      );
+      setPolygon(coords);
+      setActiveLayers({}); // Limpa camadas ao desenhar novo polígono
+    }
   };
 
-  const handleTutorialSkip = () => {
-    setShowTutorial(false);
+  // Toggle 3D Mode
+  const toggle3DMode = () => {
+    if (!map.current) return;
+    
+    if (is3DMode) {
+      // Voltar para 2D
+      map.current.easeTo({
+        pitch: 0,
+        bearing: 0,
+        duration: 1000
+      });
+      setIs3DMode(false);
+    } else {
+      // Ativar 3D
+      map.current.easeTo({
+        pitch: 60,
+        bearing: 0,
+        duration: 1000
+      });
+      setIs3DMode(true);
+    }
   };
 
-  const handlePolygonCreated = (coords: Coordinate[]) => {
-    setPolygon(coords);
-    setActiveLayers({}); // Limpa camadas ao desenhar novo polígono
-  };
+  // Atualizar opacidade das camadas
+  useEffect(() => {
+    if (!map.current) return;
+    Object.entries(activeLayers).forEach(([type, url]) => {
+      if (url && map.current?.getLayer(`layer-${type}`)) {
+        map.current.setPaintProperty(`layer-${type}`, 'raster-opacity', layerOpacity[type as LayerType]);
+      }
+    });
+  }, [layerOpacity, activeLayers]);
 
-  // Função para gerar mosaicos a partir de lista de imagens
+  // Adicionar camadas ao mapa
+  useEffect(() => {
+    if (!map.current) return;
+
+    // Remover camadas antigas que não estão mais ativas
+    const currentLayers = Object.keys(activeLayers);
+    const mapLayers = map.current.getStyle()?.layers || [];
+    
+    mapLayers.forEach((layer: any) => {
+      if (layer.id.startsWith('layer-') && !currentLayers.includes(layer.id.replace('layer-', ''))) {
+        if (map.current?.getSource(layer.id.replace('layer-', 'source-'))) {
+          map.current.removeLayer(layer.id);
+          map.current.removeSource(layer.id.replace('layer-', 'source-'));
+        }
+      }
+    });
+
+    // Adicionar novas camadas
+    Object.entries(activeLayers).forEach(([type, url]) => {
+      if (!url || !map.current) return;
+      
+      const sourceId = `source-${type}`;
+      const layerId = `layer-${type}`;
+      
+      if (!map.current.getSource(sourceId)) {
+        // Para Mapbox, não precisamos encode - usar URL diretamente
+        map.current.addSource(sourceId, {
+          type: 'raster',
+          tiles: [url],
+          tileSize: 256,
+          scheme: 'xyz',
+          maxzoom: 18
+        });
+        
+        // Inserir layer antes dos prédios 3D se existir
+        const layers = map.current.getStyle().layers;
+        const buildingLayer = layers.find((layer: any) => layer.id === '3d-buildings');
+        
+        map.current.addLayer({
+          id: layerId,
+          type: 'raster',
+          source: sourceId,
+          paint: {
+            'raster-opacity': layerOpacity[type as LayerType],
+            'raster-fade-duration': 0
+          }
+        }, buildingLayer ? '3d-buildings' : undefined);
+      }
+    });
+  }, [activeLayers]);
+
+  // Adicionar GeoJSON ao mapa
+  useEffect(() => {
+    if (!map.current || !geojsonLayerData) return;
+
+    const sourceId = 'geojson-source';
+    const layerId = 'geojson-layer';
+
+    if (map.current.getSource(sourceId)) {
+      (map.current.getSource(sourceId) as mapboxgl.GeoJSONSource).setData(geojsonLayerData);
+    } else {
+      map.current.addSource(sourceId, {
+        type: 'geojson',
+        data: geojsonLayerData
+      });
+
+      map.current.addLayer({
+        id: layerId,
+        type: 'fill',
+        source: sourceId,
+        paint: {
+          'fill-color': '#667eea',
+          'fill-opacity': 0.2
+        }
+      });
+
+      map.current.addLayer({
+        id: `${layerId}-outline`,
+        type: 'line',
+        source: sourceId,
+        paint: {
+          'line-color': '#667eea',
+          'line-width': 2
+        }
+      });
+
+      // Adicionar popups
+      map.current.on('click', layerId, (e: any) => {
+        if (!e.features || e.features.length === 0) return;
+        const props = e.features[0].properties;
+        
+        new mapboxgl.Popup()
+          .setLngLat(e.lngLat)
+          .setHTML(formatGeoJSONPopup(props))
+          .addTo(map.current!);
+      });
+
+      map.current.on('mouseenter', layerId, () => {
+        if (map.current) map.current.getCanvas().style.cursor = 'pointer';
+      });
+
+      map.current.on('mouseleave', layerId, () => {
+        if (map.current) map.current.getCanvas().style.cursor = '';
+      });
+    }
+  }, [geojsonLayerData]);
+
+  // Funções de controle (mesmas do código original)
   const generateMosaics = (images: ImageItem[]) => {
     const mosaicList: Array<{dates: string[], startDate: string, endDate: string}> = [];
     const sortedImages = [...images].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -317,20 +471,16 @@ export default function App() {
       const currentDate = new Date(sortedImages[i].date);
       
       if (currentMosaic.length === 0) {
-        // Iniciar novo mosaico
         currentMosaic = [sortedImages[i].date];
         mosaicStartDate = sortedImages[i].date;
       } else {
-        // Verificar se está dentro da tolerância de 2 meses
         const lastDate = new Date(currentMosaic[currentMosaic.length - 1]);
         const diffMonths = (currentDate.getFullYear() - lastDate.getFullYear()) * 12 + 
                           (currentDate.getMonth() - lastDate.getMonth());
         
         if (diffMonths <= 2 && currentMosaic.length < 15) {
-          // Adicionar ao mosaico atual
           currentMosaic.push(sortedImages[i].date);
         } else {
-          // Salvar mosaico atual se tiver pelo menos 10 imagens
           if (currentMosaic.length >= 10) {
             mosaicList.push({
               dates: [...currentMosaic],
@@ -338,14 +488,12 @@ export default function App() {
               endDate: currentMosaic[currentMosaic.length - 1]
             });
           }
-          // Iniciar novo mosaico
           currentMosaic = [sortedImages[i].date];
           mosaicStartDate = sortedImages[i].date;
         }
       }
     }
     
-    // Adicionar último mosaico se tiver pelo menos 10 imagens
     if (currentMosaic.length >= 10) {
       mosaicList.push({
         dates: [...currentMosaic],
@@ -359,7 +507,6 @@ export default function App() {
 
   const handleToggleLayer = async (layerType: LayerType) => {
     if (activeLayers[layerType]) {
-      // Camada está ativa, então desativa
       setActiveLayers(prev => {
         const newLayers = { ...prev };
         delete newLayers[layerType];
@@ -373,7 +520,6 @@ export default function App() {
       return;
     }
 
-    // Buscar lista de imagens disponíveis
     setLoading(prev => ({ ...prev, [layerType]: true }));
     try {
       const body = { polygon, start_date: startDate, end_date: endDate, layer_type: layerType, cloud_percentage: cloud };
@@ -390,14 +536,11 @@ export default function App() {
       if (data.images && data.images.length > 0) {
         setImageList(data.images);
         setSelectedLayerType(layerType);
-        
-        // Gerar mosaicos automaticamente
         const generatedMosaics = generateMosaics(data.images);
         setMosaics(generatedMosaics);
-        
         setShowImageListModal(true);
       } else {
-        alert(`Nenhuma imagem encontrada para ${layerType} no período selecionado. Tente aumentar o intervalo de datas ou a tolerância de nuvens.`);
+        alert(`Nenhuma imagem encontrada para ${layerType} no período selecionado.`);
       }
     } catch (e: any) {
       alert(`Erro ao buscar imagens para ${layerType}: ${e.message || e}`);
@@ -437,14 +580,71 @@ export default function App() {
     }
   };
 
-  
   const handleClear = () => {
     setPolygon([]);
     setActiveLayers({});
-    setGeojsonLayerData(null); // Clear GeoJSON layer
-    setClearSignal((s) => s + 1);
-    if (mapRef.current) {
-      mapRef.current.setView([-15.78, -47.93], 4);
+    setGeojsonLayerData(null);
+    if (draw.current) {
+      draw.current.deleteAll();
+    }
+    if (map.current) {
+      map.current.flyTo({ center: [-47.93, -15.78], zoom: 4 });
+    }
+  };
+
+  const handleLoadCommunities = async () => {
+    if (polygon.length < 3) {
+      alert("Primeiro, desenhe um polígono para delimitar a área.");
+      return;
+    }
+    
+    setLoading(prev => ({ ...prev, geojson: true }));
+    
+    try {
+      const fileNames = ['FCUs_BR.json', 'geopackages_n_setorizadas.json', 'qg_2022_670_fcu_agreg.json', 'setores_censitarios.json'];
+      const allFeatures: any[] = [];
+      
+      for (const fileName of fileNames) {
+        try {
+          const payload = { filename: fileName, polygon: polygon };
+          const url = `${API_BASE}/api/geojson/render_layer`;
+          
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            mode: 'cors'
+          });
+          
+          if (res.ok) {
+            const geojsonData = await res.json();
+            if (geojsonData.features && geojsonData.features.length > 0) {
+              allFeatures.push(...geojsonData.features);
+            }
+          }
+        } catch (fileError: any) {
+          console.error(`Erro ao processar ${fileName}:`, fileError);
+        }
+      }
+      
+      if (allFeatures.length > 0) {
+        const combinedGeoJSON = {
+          type: 'FeatureCollection',
+          features: allFeatures
+        };
+        setGeojsonLayerData(combinedGeoJSON);
+        alert(`✅ ${allFeatures.length} favelas/comunidades encontradas na área delimitada.`);
+      } else {
+        alert("Nenhuma favela/comunidade encontrada na área delimitada.");
+      }
+      
+    } catch (e: any) {
+      alert(`Erro ao carregar favelas: ${e.message || e}`);
+    } finally {
+      setLoading(prev => ({ ...prev, geojson: false }));
     }
   };
 
@@ -476,10 +676,30 @@ export default function App() {
   }
 
   // Main app
-
   return (
-    <div className="app">
-      <aside className="sidebar">
+    <div className={`app ${isTouch ? 'touch-device' : 'desktop-device'}`}>
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        {isTouch && (
+          <button 
+            className="sidebar-toggle"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            style={{
+              position: 'absolute',
+              top: '10px',
+              right: '-40px',
+              width: '40px',
+              height: '40px',
+              background: 'var(--neon-cyan)',
+              border: 'none',
+              borderRadius: '0 8px 8px 0',
+              cursor: 'pointer',
+              zIndex: 1000
+            }}
+          >
+            {sidebarCollapsed ? '▶' : '◀'}
+          </button>
+        )}
+        
         <header className="sidebar-header">
           <h1>HARP-IA</h1>
           <p>Análise Geoespacial com IA</p>
@@ -540,103 +760,32 @@ export default function App() {
 
           <div className="control-group">
             <h3><i className="icofont-map-pins"></i> Dados Geográficos</h3>
-            
             <button 
               className="btn-communities" 
-              onClick={async () => {
-                if (polygon.length < 3) {
-                  alert("Primeiro, desenhe um polígono para delimitar a área.");
-                  return;
-                }
-                
-                setLoading(prev => ({ ...prev, geojson: true }));
-                console.log('🚀 Iniciando carregamento de favelas...');
-                console.log('🌐 API_BASE:', API_BASE);
-                console.log('📍 Polígono:', JSON.stringify(polygon, null, 2));
-                
-                try {
-                  // Carregar todos os GeoJSONs de favelas na área delimitada
-                  const fileNames = ['FCUs_BR.json', 'geopackages_n_setorizadas.json', 'qg_2022_670_fcu_agreg.json', 'setores_censitarios.json'];
-                  const allFeatures: any[] = [];
-                  
-                  console.log('🔍 Carregando GeoJSONs:', fileNames);
-                  
-                  for (const fileName of fileNames) {
-                    try {
-                      const payload = { filename: fileName, polygon: polygon };
-                      const url = `${API_BASE}/api/geojson/render_layer`;
-                      
-                      console.log(`📁 Carregando ${fileName} de ${url}...`);
-                      console.log(`📦 Payload:`, JSON.stringify(payload).substring(0, 200));
-                      
-                      const res = await fetch(url, {
-                        method: 'POST',
-                        headers: { 
-                          'Content-Type': 'application/json',
-                          'Accept': 'application/json'
-                        },
-                        body: JSON.stringify(payload),
-                        mode: 'cors'
-                      });
-                      
-                      console.log(`📡 Response status ${fileName}:`, res.status, res.statusText);
-                      
-                      if (res.ok) {
-                        const geojsonData = await res.json();
-                        const featuresCount = geojsonData.features?.length || 0;
-                        console.log(`✅ ${fileName}: ${featuresCount} features`);
-                        
-                        if (geojsonData.features && geojsonData.features.length > 0) {
-                          allFeatures.push(...geojsonData.features);
-                        }
-                      } else {
-                        const errorText = await res.text();
-                        console.error(`❌ ${fileName} falhou: ${res.status} - ${errorText}`);
-                        console.error(`❌ Response headers:`, Array.from(res.headers.entries()));
-                      }
-                    } catch (fileError: any) {
-                      console.error(`❌ Erro ao processar ${fileName}:`, fileError);
-                      console.error(`❌ Stack:`, fileError.stack);
-                    }
-                  }
-                  
-                  console.log(`📊 Total de features encontradas: ${allFeatures.length}`);
-                  
-                  if (allFeatures.length > 0) {
-                    const combinedGeoJSON = {
-                      type: 'FeatureCollection',
-                      features: allFeatures
-                    };
-                    console.log('✅ Setando GeoJSON no estado...');
-                    setGeojsonLayerData(combinedGeoJSON);
-                    alert(`✅ ${allFeatures.length} favelas/comunidades encontradas na área delimitada.`);
-                  } else {
-                    console.warn('⚠️ Nenhuma feature encontrada');
-                    alert("Nenhuma favela/comunidade encontrada na área delimitada. Tente uma área maior ou diferente.");
-                  }
-                  
-                } catch (e: any) {
-                  console.error('❌ Erro geral ao carregar favelas:', e);
-                  console.error('❌ Stack trace:', e.stack);
-                  alert(`Erro ao carregar favelas: ${e.message || e}`);
-                } finally {
-                  setLoading(prev => ({ ...prev, geojson: false }));
-                  console.log('🏁 Finalizado carregamento');
-                }
-              }}
+              onClick={handleLoadCommunities}
               disabled={polygon.length < 3 || !!loading.geojson}
               style={{ width: '100%' }}
             >
               <i className="icofont-home"></i> {loading.geojson ? 'Carregando Favelas...' : 'Carregar Favelas na Área'}
             </button>
-            
           </div>
 
         </div>
 
         <footer className="sidebar-footer">
+          <button 
+            className="btn-3d" 
+            onClick={toggle3DMode}
+            style={{
+              width: '100%',
+              marginBottom: '10px',
+              background: is3DMode ? 'linear-gradient(135deg, #00e5ff 0%, #00b8d4 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+            }}
+          >
+            <i className="icofont-cube"></i> {is3DMode ? 'Modo 2D' : 'Modo 3D'}
+          </button>
           <button className="btn-ai chat-toggle" onClick={() => setChatOpen(true)} disabled={polygon.length < 3}>
-            <><i className="icofont-robot"></i> Chat com IA</>
+            <i className="icofont-robot"></i> Chat com IA
           </button>
           <button className="btn-clear" onClick={handleClear} disabled={isAnythingLoading}>
             Limpar Tudo
@@ -645,228 +794,136 @@ export default function App() {
       </aside>
 
       <main className="main-content">
-        <MapContainer center={center as any} zoom={4} className="map" id="map" ref={mapRef}>
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          
-          {Object.entries(activeLayers).map(([type, url]) => 
-            (url) ? <TileLayer key={type} url={url} opacity={layerOpacity[type as LayerType]} /> : null
-          )}
-
-          <FeatureGroup>
-            {polygon.length >= 3 && <Polygon pathOptions={{ color: "var(--neon-cyan)", weight: 2, fillOpacity: 0.1 }} positions={polygon.map(p => [p.lat, p.lng]) as any} />}
-          </FeatureGroup>
-
-          {geojsonLayerData && (
-            <GeoJSON 
-              key={JSON.stringify(geojsonLayerData)} 
-              data={geojsonLayerData}
-              style={{
-                color: "#667eea",
-                weight: 2,
-                fillOpacity: 0.2,
-                fillColor: "#667eea"
-              }}
-              onEachFeature={(feature, layer) => {
-                // Add popup with formatted feature properties
-                if (feature.properties) {
-                  const popupContent = formatGeoJSONPopup(feature.properties);
-                  layer.bindPopup(popupContent, {
-                    maxWidth: 350,
-                    className: 'custom-popup'
-                  });
-                }
-              }}
-            />
-          )}
-
-          <DrawControl onPolygonCreated={handlePolygonCreated} clearSignal={clearSignal} />
-        </MapContainer>
+        <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
       </main>
 
       {showImageListModal && selectedLayerType && (
         <div className="ai-modal-overlay" onClick={() => { setShowImageListModal(false); setActiveTab('lista'); }}>
-          <div className="ai-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+          <div className="ai-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: isTouch ? '90%' : '700px' }}>
             <div className="ai-modal-header">
-              <h2><i className="icofont-satellite"></i> Imagens Disponíveis - {layerDefs[selectedLayerType].name}</h2>
+              <h2><i className="icofont-satellite"></i> Imagens - {layerDefs[selectedLayerType].name}</h2>
               <button className="close-btn" onClick={() => { setShowImageListModal(false); setActiveTab('lista'); }}>✕</button>
             </div>
             
-            {/* Tabs */}
-            <div style={{ 
-              display: 'flex', 
-              borderBottom: '2px solid var(--neon-cyan)', 
-              marginBottom: '15px',
-              gap: '10px'
-            }}>
-              <button
-                onClick={() => setActiveTab('lista')}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  background: activeTab === 'lista' ? 'linear-gradient(135deg, #0f3460 0%, #16213e 100%)' : 'transparent',
-                  border: 'none',
-                  borderBottom: activeTab === 'lista' ? '3px solid var(--neon-cyan)' : '3px solid transparent',
-                  color: activeTab === 'lista' ? 'var(--neon-cyan)' : '#aaa',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  transition: 'all 0.3s ease'
-                }}
-              >
+            <div style={{ display: 'flex', borderBottom: '2px solid var(--neon-cyan)', marginBottom: '15px', gap: '10px' }}>
+              <button onClick={() => setActiveTab('lista')} style={{
+                flex: 1, padding: '12px', background: activeTab === 'lista' ? 'linear-gradient(135deg, #0f3460 0%, #16213e 100%)' : 'transparent',
+                border: 'none', borderBottom: activeTab === 'lista' ? '3px solid var(--neon-cyan)' : '3px solid transparent',
+                color: activeTab === 'lista' ? 'var(--neon-cyan)' : '#aaa', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold'
+              }}>
                 📋 Lista ({imageList.length})
               </button>
-              <button
-                onClick={() => setActiveTab('mosaicos')}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  background: activeTab === 'mosaicos' ? 'linear-gradient(135deg, #0f3460 0%, #16213e 100%)' : 'transparent',
-                  border: 'none',
-                  borderBottom: activeTab === 'mosaicos' ? '3px solid var(--neon-green)' : '3px solid transparent',
-                  color: activeTab === 'mosaicos' ? 'var(--neon-green)' : '#aaa',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  transition: 'all 0.3s ease'
-                }}
-              >
+              <button onClick={() => setActiveTab('mosaicos')} style={{
+                flex: 1, padding: '12px', background: activeTab === 'mosaicos' ? 'linear-gradient(135deg, #0f3460 0%, #16213e 100%)' : 'transparent',
+                border: 'none', borderBottom: activeTab === 'mosaicos' ? '3px solid var(--neon-green)' : '3px solid transparent',
+                color: activeTab === 'mosaicos' ? 'var(--neon-green)' : '#aaa', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold'
+              }}>
                 🗂️ Mosaicos ({mosaics.length})
               </button>
             </div>
 
             <div className="ai-content" style={{ maxHeight: '500px', overflowY: 'auto' }}>
               {activeTab === 'lista' ? (
-                <>
-                  <p style={{ marginBottom: '15px', color: '#aaa' }}>
-                    Encontradas {imageList.length} imagens. Clique para carregar:
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {imageList.map((img, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleLoadSpecificImage(img.date)}
-                        style={{
-                          padding: '12px',
-                          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                          border: '1px solid var(--neon-cyan)',
-                          borderRadius: '8px',
-                          color: '#fff',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          transition: 'all 0.3s ease',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'linear-gradient(135deg, #16213e 0%, #0f3460 100%)';
-                          e.currentTarget.style.borderColor = 'var(--neon-blue)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
-                          e.currentTarget.style.borderColor = 'var(--neon-cyan)';
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>
-                            📅 {img.date}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {imageList.map((img, idx) => (
+                    <button key={idx} onClick={() => handleLoadSpecificImage(img.date)} style={{
+                      padding: '12px', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                      border: '1px solid var(--neon-cyan)', borderRadius: '8px', color: '#fff',
+                      cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>📅 {img.date}</div>
+                        <div style={{ fontSize: '12px', color: '#aaa' }}>{img.satellite} • Nuvens: {img.cloud_cover}%</div>
+                      </div>
+                      <i className="icofont-download" style={{ fontSize: '20px', color: 'var(--neon-green)' }}></i>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                mosaics.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {mosaics.map((mosaic, idx) => (
+                      <div key={idx} style={{
+                        padding: '15px', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                        border: '2px solid var(--neon-green)', borderRadius: '12px', color: '#fff'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--neon-green)', marginBottom: '5px' }}>
+                              🗂️ Mosaico #{idx + 1} ({mosaic.dates.length} imagens)
+                            </h3>
+                            <div style={{ fontSize: '14px', color: '#aaa' }}>📅 {mosaic.startDate} até {mosaic.endDate}</div>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#aaa', marginTop: '4px' }}>
-                            {img.satellite} • Nuvens: {img.cloud_cover}%
-                          </div>
+                          <button
+                            onClick={async () => {
+                              if (!selectedLayerType) return;
+                              setLoading(prev => ({ ...prev, [selectedLayerType]: true }));
+                              try {
+                                // Carregar mosaico usando o endpoint de mosaico
+                                const res = await fetch(`${API_BASE}/api/get_tile/${selectedLayerType}`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    polygon,
+                                    start_date: mosaic.startDate,
+                                    end_date: mosaic.endDate,
+                                    is_mosaic: true
+                                  })
+                                });
+                                
+                                if (!res.ok) {
+                                  throw new Error(`Erro ao carregar mosaico: ${res.status}`);
+                                }
+                                
+                                const data = await res.json();
+                                if (data.tile_url) {
+                                  setActiveLayers(prev => ({ ...prev, [selectedLayerType]: data.tile_url }));
+                                  setShowImageListModal(false);
+                                  alert(`✅ Mosaico #${idx + 1} carregado com sucesso!`);
+                                } else {
+                                  throw new Error('URL do mosaico não retornada');
+                                }
+                              } catch (error: any) {
+                                alert(`Erro ao carregar mosaico: ${error.message}`);
+                              } finally {
+                                setLoading(prev => ({ ...prev, [selectedLayerType]: false }));
+                              }
+                            }}
+                            style={{
+                              padding: '10px 20px',
+                              background: 'linear-gradient(135deg, #00e5ff 0%, #00b8d4 100%)',
+                              border: 'none',
+                              borderRadius: '8px',
+                              color: '#000',
+                              fontWeight: 'bold',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              transition: 'transform 0.2s ease',
+                              boxShadow: '0 4px 15px rgba(0, 229, 255, 0.4)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                          >
+                            <i className="icofont-download" style={{ fontSize: '18px' }}></i>
+                            Carregar
+                          </button>
                         </div>
-                        <i className="icofont-download" style={{ fontSize: '20px', color: 'var(--neon-green)' }}></i>
-                      </button>
+                      </div>
                     ))}
                   </div>
-                </>
-              ) : (
-                <>
-                  {mosaics.length > 0 ? (
-                    <>
-                      <p style={{ marginBottom: '15px', color: '#aaa' }}>
-                        {mosaics.length} mosaico(s) gerado(s) com pelo menos 10 imagens cada (tolerância: 2 meses)
-                      </p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {mosaics.map((mosaic, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              padding: '15px',
-                              background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                              border: '2px solid var(--neon-green)',
-                              borderRadius: '12px',
-                              color: '#fff'
-                            }}
-                          >
-                            <div style={{ 
-                              display: 'flex', 
-                              justifyContent: 'space-between', 
-                              alignItems: 'center',
-                              marginBottom: '10px'
-                            }}>
-                              <h3 style={{ 
-                                fontSize: '18px', 
-                                fontWeight: 'bold', 
-                                color: 'var(--neon-green)',
-                                margin: 0 
-                              }}>
-                                🗂️ Mosaico #{idx + 1}
-                              </h3>
-                              <span style={{ 
-                                padding: '4px 12px', 
-                                background: 'var(--neon-green)', 
-                                color: '#000', 
-                                borderRadius: '12px',
-                                fontSize: '14px',
-                                fontWeight: 'bold'
-                              }}>
-                                {mosaic.dates.length} imagens
-                              </span>
-                            </div>
-                            <div style={{ fontSize: '14px', color: '#aaa', marginBottom: '8px' }}>
-                              📅 Período: {mosaic.startDate} até {mosaic.endDate}
-                            </div>
-                            <div style={{ 
-                              fontSize: '12px', 
-                              color: '#888',
-                              maxHeight: '100px',
-                              overflowY: 'auto',
-                              padding: '8px',
-                              background: 'rgba(0,0,0,0.3)',
-                              borderRadius: '4px'
-                            }}>
-                              <strong>Datas incluídas:</strong><br/>
-                              {mosaic.dates.join(', ')}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{ 
-                      textAlign: 'center', 
-                      padding: '40px', 
-                      color: '#aaa' 
-                    }}>
-                      <i className="icofont-info-circle" style={{ fontSize: '48px', marginBottom: '15px', display: 'block', color: 'var(--neon-yellow)' }}></i>
-                      <p>Nenhum mosaico gerado.</p>
-                      <p style={{ fontSize: '14px', marginTop: '8px' }}>
-                        São necessárias pelo menos 10 imagens dentro de 2 meses para criar um mosaico.
-                      </p>
-                    </div>
-                  )}
-                </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#aaa' }}>
+                    <p>Nenhum mosaico gerado. Necessário pelo menos 10 imagens.</p>
+                  </div>
+                )
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Chat Panel */}
       <ChatPanel 
         isOpen={chatOpen}
         onClose={() => setChatOpen(false)}
@@ -877,18 +934,17 @@ export default function App() {
         endDate={endDate}
       />
       
-      {/* Tutorial com abelha */}
       {showTutorial && (
         <BeeTutorial 
-          onComplete={handleTutorialComplete}
-          onSkip={handleTutorialSkip}
+          onComplete={() => setShowTutorial(false)}
+          onSkip={() => setShowTutorial(false)}
         />
       )}
     </div>
   );
 }
 
-// Definições das camadas para a UI
+// Definições das camadas
 const layerDefs: Record<LayerType, { name: string; icon: string }> = {
   SENTINEL2_RGB: { name: "Sentinel-2 (RGB)", icon: "icofont-satellite" },
   LANDSAT_RGB: { name: "Landsat (RGB)", icon: "icofont-satellite-alt" },
