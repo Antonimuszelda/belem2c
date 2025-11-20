@@ -87,20 +87,20 @@ function HarpiaModel() {
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              filter: 'drop-shadow(0 0 30px rgba(102, 126, 234, 0.8))'
+              filter: 'drop-shadow(0 0 30px rgba(0, 212, 230, 0.8))'
             }}
           />
         </div>
       </Html>
 
       {/* Sparkles ao redor */}
-      <Sparkles count={80} scale={4} size={2} speed={0.3} color="#667eea" />
+      <Sparkles count={80} scale={4} size={2} speed={0.3} color="#00d4e6" />
 
         {/* Anéis orbitais com materiais brilhantes - MENOS INTENSOS */}
         <Ring ref={ring1Ref} args={[2, 2.15, 64]} rotation={[Math.PI / 2, 0, 0]}>
           <meshStandardMaterial 
-            color="#667eea" 
-            emissive="#667eea" 
+            color="#00d4e6" 
+            emissive="#00d4e6" 
             emissiveIntensity={0.6}
             metalness={0.8}
             roughness={0.2}
@@ -109,8 +109,8 @@ function HarpiaModel() {
 
         <Ring ref={ring2Ref} args={[2.5, 2.65, 64]} rotation={[Math.PI / 4, Math.PI / 4, 0]}>
           <meshStandardMaterial 
-            color="#764ba2" 
-            emissive="#764ba2" 
+            color="#00b8cc" 
+            emissive="#00b8cc" 
             emissiveIntensity={0.6}
             metalness={0.8}
             roughness={0.2}
@@ -119,8 +119,8 @@ function HarpiaModel() {
 
         <Ring ref={ring3Ref} args={[3, 3.15, 64]} rotation={[0, Math.PI / 3, Math.PI / 6]}>
           <meshStandardMaterial 
-            color="#f093fb" 
-            emissive="#f093fb" 
+            color="#c4d92e" 
+            emissive="#c4d92e" 
             emissiveIntensity={0.6}
             metalness={0.8}
             roughness={0.2}

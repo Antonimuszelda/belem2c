@@ -22,8 +22,16 @@
   --neon-blue: #2962ff;
   --neon-blue-glow: rgba(41, 98, 255, 0.7);
 
-  --neon-cyan: #00e5ff;
-  --neon-cyan-glow: rgba(0, 229, 255, 0.7);
+  /* Cores da Harpia */
+  --harpia-cyan: #00d4e6; /* Ciano vibrante da plumagem */
+  --harpia-cyan-glow: rgba(0, 212, 230, 0.7);
+  --harpia-turquoise: #00b8cc; /* Turquesa das penas */
+  --harpia-yellow: #c4d92e; /* Amarelo esverdeado do fundo */
+  --harpia-gray: #6b7a8f; /* Cinza das penas */
+  --harpia-dark-cyan: #008b9c; /* Ciano escuro */
+  
+  --neon-cyan: #00d4e6; /* Usar cyan da harpia */
+  --neon-cyan-glow: rgba(0, 212, 230, 0.7);
 }
 
 body {
@@ -842,10 +850,10 @@ button:disabled {
   padding: 4px 8px !important;
 }
 
-/* Botão 3D customizado */
+/* Botão 3D customizado - cores da harpia */
 .btn-3d {
   padding: 12px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--harpia-cyan) 0%, var(--harpia-turquoise) 100%);
   border: none;
   border-radius: 12px;
   color: white;
@@ -857,12 +865,12 @@ button:disabled {
   justify-content: center;
   gap: 8px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 15px var(--harpia-cyan-glow);
 }
 
 .btn-3d:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+  box-shadow: 0 6px 20px var(--harpia-cyan-glow);
 }
 
 .btn-3d:active {
@@ -1041,7 +1049,7 @@ button:disabled {
   .sidebar-toggle-mobile {
     width: 100%;
     padding: 12px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--harpia-turquoise) 0%, var(--harpia-yellow) 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -1050,11 +1058,12 @@ button:disabled {
     cursor: pointer;
     margin-bottom: 10px;
     transition: all 0.3s ease;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
   
   .sidebar-toggle-mobile:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 184, 204, 0.4);
   }
   
   .sidebar-header {
