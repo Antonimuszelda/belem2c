@@ -206,17 +206,17 @@ export default function App() {
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [-47.93, -15.78],
-      zoom: isMobileDevice ? 3 : 4,
+      zoom: deviceType === 'mobile' ? 3 : 4,
       pitch: 0,
       bearing: 0,
-      antialias: !isMobileDevice,
+      antialias: deviceType !== 'mobile',
       attributionControl: false,
       preserveDrawingBuffer: false,
       refreshExpiredTiles: false,
-      maxZoom: isMobileDevice ? 18 : 20,
+      maxZoom: deviceType === 'mobile' ? 18 : 20,
       touchPitch: false,
       touchZoomRotate: true,
-      dragRotate: !isMobileDevice,
+      dragRotate: deviceType !== 'mobile',
       dragPan: true,
       fadeDuration: 0,
       crossSourceCollisions: false
@@ -224,18 +224,18 @@ export default function App() {
     
     // Garantir que todas as interações estão habilitadas
     map.current.dragPan.enable();
-    if (!isMobileDevice) {
+    if (deviceType !== 'mobile') {
       map.current.dragRotate.enable();
     }
     
     // Desabilitar interações que causam conflito durante desenho
-    if (isMobileDevice) {
+    if (deviceType === 'mobile') {
       map.current.boxZoom.disable();
       map.current.doubleClickZoom.disable();
     }
 
     // Adicionar controles otimizados para mobile
-    if (!isMobileDevice) {
+    if (deviceType !== 'mobile') {
       const nav = new mapboxgl.NavigationControl({ visualizePitch: true });
       map.current.addControl(nav, 'top-right');
       map.current.addControl(new mapboxgl.ScaleControl(), 'bottom-right');
@@ -250,7 +250,7 @@ export default function App() {
     }
     
     // Fullscreen apenas em mobile
-    if (isMobileDevice) {
+    if (deviceType === 'mobile') {
       map.current.addControl(new mapboxgl.FullscreenControl(), 'top-left');
     }
 
@@ -261,8 +261,8 @@ export default function App() {
       controls: {},
       defaultMode: 'simple_select',
       touchEnabled: true,
-      touchBuffer: isMobileDevice ? 25 : 12,
-      clickBuffer: isMobileDevice ? 20 : 5,
+      touchBuffer: deviceType === 'mobile' ? 25 : 12,
+      clickBuffer: deviceType === 'mobile' ? 20 : 5,
       // Estilos simplificados para melhor performance
       styles: [
         {
@@ -298,7 +298,7 @@ export default function App() {
           'filter': ['all', ['==', 'active', 'true'], ['==', '$type', 'Polygon']],
           'paint': {
             'line-color': '#00e5ff',
-            'line-width': isMobileDevice ? 5 : 3
+            'line-width': deviceType === 'mobile' ? 5 : 3
           }
         },
         {
@@ -316,7 +316,7 @@ export default function App() {
           'filter': ['all', ['==', 'active', 'true'], ['==', '$type', 'LineString']],
           'paint': {
             'line-color': '#00e5ff',
-            'line-width': isMobileDevice ? 4 : 3
+            'line-width': deviceType === 'mobile' ? 4 : 3
           }
         },
         {
@@ -324,7 +324,7 @@ export default function App() {
           'type': 'circle',
           'filter': ['all', ['==', 'meta', 'vertex'], ['==', '$type', 'Point'], ['==', 'active', 'false']],
           'paint': {
-            'circle-radius': isMobileDevice ? 8 : 5,
+            'circle-radius': deviceType === 'mobile' ? 8 : 5,
             'circle-color': '#fff'
           }
         },
@@ -333,7 +333,7 @@ export default function App() {
           'type': 'circle',
           'filter': ['all', ['==', 'meta', 'vertex'], ['==', '$type', 'Point'], ['==', 'active', 'true']],
           'paint': {
-            'circle-radius': isMobileDevice ? 12 : 7,
+            'circle-radius': deviceType === 'mobile' ? 12 : 7,
             'circle-color': '#00e5ff'
           }
         }
@@ -372,7 +372,7 @@ export default function App() {
       if (!map.current) return;
       
       // Terreno 3D apenas em desktop para melhor performance
-      if (!isMobileDevice) {
+      if (deviceType !== 'mobile') {
         map.current.addSource('mapbox-dem', {
           'type': 'raster-dem',
           'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
@@ -396,7 +396,7 @@ export default function App() {
       });
 
       // Adicionar prédios 3D (casinhas) - apenas em desktop
-      if (!isMobileDevice) {
+      if (deviceType !== 'mobile') {
         const layers = map.current.getStyle().layers;
         const labelLayerId = layers.find(
           (layer: any) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
@@ -438,7 +438,7 @@ export default function App() {
       }
       
       // Otimizações de performance para mobile
-      if (isMobileDevice && map.current) {
+      if (deviceType === 'mobile' && map.current) {
         map.current.setRenderWorldCopies(false);
       }
       
@@ -532,11 +532,11 @@ export default function App() {
       setIs3DMode(false);
     } else {
       // Ativar 3D com pitch reduzido em mobile para performance
-      const targetPitch = isMobileDevice ? 45 : 60;
+      const targetPitch = deviceType === 'mobile' ? 45 : 60;
       
       // Garantir que dragPan e dragRotate estão habilitados para 3D
       map.current.dragPan.enable();
-      if (!isMobileDevice) {
+      if (deviceType !== 'mobile') {
         map.current.dragRotate.enable();
       }
       
