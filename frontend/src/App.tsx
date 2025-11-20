@@ -85,6 +85,8 @@ export default function App() {
   // Detectar mobile/tablet
   const [isMobileDevice] = useState(() => window.innerWidth <= 768);
   const [isTouch] = useState(isTouchDevice());
+  // Estado para forçar modo mobile ou desktop (independente do dispositivo)
+  const [forceMobileMode, setForceMobileMode] = useState(isMobileDevice);
   
   // Navigation state
   const [appState, setAppState] = useState<'loading1' | 'slides' | 'hyperspace' | 'app' | 'tutorial'>('loading1');
@@ -119,7 +121,7 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [is3DMode, setIs3DMode] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(isTouch);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(forceMobileMode);
   const [drawMode, setDrawMode] = useState(false);
 
   // Função para formatar popups do GeoJSON
@@ -856,12 +858,49 @@ export default function App() {
 
   // Main app
   return (
-    <div className={`app ${isTouch ? 'touch-device' : 'desktop-device'}`}>
+    <div className={`app ${isTouch ? 'touch-device' : 'desktop-device'} ${forceMobileMode ? 'force-mobile' : 'force-desktop'}`}>
       <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        
+        {/* Botão toggle PC/Mobile - só aparece em modo mobile */}
+        {forceMobileMode && (
+          <button 
+            className="sidebar-toggle-mobile" 
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            style={{ flexShrink: 0 }}
+          >
+            <i className={`icofont-${sidebarCollapsed ? 'rounded-down' : 'rounded-up'}`}></i>
+            {sidebarCollapsed ? ' Expandir Painel' : ' Minimizar Painel'}
+          </button>
+        )}
         
         <header className="sidebar-header">
           <h1>HARP-IA</h1>
           <p>Análise Geoespacial com IA</p>
+          
+          {/* Botão para alternar entre modo PC e Mobile */}
+          <button 
+            onClick={() => setForceMobileMode(!forceMobileMode)}
+            style={{
+              marginTop: '10px',
+              padding: '8px 12px',
+              background: 'linear-gradient(135deg, var(--harpia-yellow) 0%, var(--harpia-cyan) 100%)',
+              border: '2px solid var(--harpia-cyan)',
+              borderRadius: '8px',
+              color: '#000',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              width: '100%',
+              boxShadow: '0 2px 10px var(--harpia-cyan-glow)'
+            }}
+          >
+            <i className={`icofont-${forceMobileMode ? 'computer' : 'mobile-phone'}`}></i>
+            Modo {forceMobileMode ? 'PC' : 'Mobile'}
+          </button>
         </header>
 
         <div className="sidebar-content">

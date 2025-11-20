@@ -87,43 +87,43 @@ function HarpiaModel() {
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              filter: 'drop-shadow(0 0 30px rgba(0, 212, 230, 0.8))'
+              filter: 'drop-shadow(0 0 40px rgba(0, 217, 255, 0.9)) drop-shadow(0 0 20px rgba(255, 0, 160, 0.5))'
             }}
           />
         </div>
       </Html>
 
       {/* Sparkles ao redor */}
-      <Sparkles count={80} scale={4} size={2} speed={0.3} color="#00d4e6" />
+      <Sparkles count={80} scale={4} size={2} speed={0.3} color="#00d9ff" />
 
         {/* Anéis orbitais com materiais brilhantes - MENOS INTENSOS */}
         <Ring ref={ring1Ref} args={[2, 2.15, 64]} rotation={[Math.PI / 2, 0, 0]}>
           <meshStandardMaterial 
-            color="#00d4e6" 
-            emissive="#00d4e6" 
-            emissiveIntensity={0.6}
-            metalness={0.8}
-            roughness={0.2}
+            color="#00d9ff" 
+            emissive="#00d9ff" 
+            emissiveIntensity={0.7}
+            metalness={0.9}
+            roughness={0.1}
           />
         </Ring>
 
         <Ring ref={ring2Ref} args={[2.5, 2.65, 64]} rotation={[Math.PI / 4, Math.PI / 4, 0]}>
           <meshStandardMaterial 
-            color="#00b8cc" 
-            emissive="#00b8cc" 
-            emissiveIntensity={0.6}
-            metalness={0.8}
-            roughness={0.2}
+            color="#c4b82e" 
+            emissive="#c4b82e" 
+            emissiveIntensity={0.7}
+            metalness={0.9}
+            roughness={0.1}
           />
         </Ring>
 
         <Ring ref={ring3Ref} args={[3, 3.15, 64]} rotation={[0, Math.PI / 3, Math.PI / 6]}>
           <meshStandardMaterial 
-            color="#c4d92e" 
-            emissive="#c4d92e" 
-            emissiveIntensity={0.6}
-            metalness={0.8}
-            roughness={0.2}
+            color="#ff00a0" 
+            emissive="#ff00a0" 
+            emissiveIntensity={0.7}
+            metalness={0.9}
+            roughness={0.1}
           />
         </Ring>
       </group>

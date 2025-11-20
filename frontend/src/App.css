@@ -22,16 +22,21 @@
   --neon-blue: #2962ff;
   --neon-blue-glow: rgba(41, 98, 255, 0.7);
 
-  /* Cores da Harpia */
-  --harpia-cyan: #00d4e6; /* Ciano vibrante da plumagem */
-  --harpia-cyan-glow: rgba(0, 212, 230, 0.7);
-  --harpia-turquoise: #00b8cc; /* Turquesa das penas */
-  --harpia-yellow: #c4d92e; /* Amarelo esverdeado do fundo */
-  --harpia-gray: #6b7a8f; /* Cinza das penas */
-  --harpia-dark-cyan: #008b9c; /* Ciano escuro */
+  /* 🦅 Cores da Harpia - Paleta Real */
+  --harpia-white: #e8e8e8; /* Cinza claro/branco - corpo da harpia */
+  --harpia-cyan: #00d9ff; /* Cyan vibrante - detalhes turquesa */
+  --harpia-cyan-glow: rgba(0, 217, 255, 0.8);
+  --harpia-turquoise: #0096a8; /* Turquesa escuro - sombras */
+  --harpia-yellow: #c4b82e; /* Amarelo mostarda - fundo */
+  --harpia-yellow-glow: rgba(196, 184, 46, 0.6);
+  --harpia-gray: #2a2a2a; /* Cinza escuro - contornos */
+  --harpia-magenta: #ff00a0; /* Rosa/magenta - cyberpunk */
+  --harpia-magenta-glow: rgba(255, 0, 160, 0.7);
   
-  --neon-cyan: #00d4e6; /* Usar cyan da harpia */
-  --neon-cyan-glow: rgba(0, 212, 230, 0.7);
+  --neon-cyan: #00d9ff; /* Usar cyan vibrante da harpia */
+  --neon-cyan-glow: rgba(0, 217, 255, 0.8);
+  --neon-magenta: #ff00a0; /* Magenta cyberpunk */
+  --neon-magenta-glow: rgba(255, 0, 160, 0.7);
 }
 
 body {
@@ -172,7 +177,8 @@ html, body, #root {
   width: 380px;
   min-width: 380px;
   background-color: var(--bg-dark-2);
-  border-right: 1px solid var(--border-color);
+  border-right: 2px solid var(--harpia-cyan);
+  box-shadow: 2px 0 20px var(--harpia-cyan-glow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -181,20 +187,31 @@ html, body, #root {
 .sidebar-header {
   padding: 20px;
   text-align: center;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 2px solid var(--harpia-cyan);
+  background: linear-gradient(180deg, rgba(0, 217, 255, 0.1) 0%, transparent 100%);
+  box-shadow: 0 2px 15px var(--harpia-cyan-glow);
 }
 
 .sidebar-header h1 {
   margin: 0;
   font-size: 1.8em;
-  color: var(--neon-cyan);
-  text-shadow: 0 0 10px var(--neon-cyan-glow);
+  background: linear-gradient(135deg, var(--harpia-cyan) 0%, var(--harpia-magenta) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 20px var(--harpia-cyan-glow);
+  filter: drop-shadow(0 0 10px var(--harpia-cyan-glow)) drop-shadow(0 0 5px var(--harpia-magenta-glow));
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
 }
 
 .sidebar-header p {
-  margin: 4px 0 0;
-  color: var(--text-medium);
+  margin: 8px 0 0;
+  color: var(--harpia-white);
   font-size: 0.9em;
+  text-shadow: 0 0 8px var(--harpia-cyan-glow);
+  font-weight: 600;
 }
 
 .sidebar-content {
@@ -239,15 +256,27 @@ html, body, #root {
 
 .control-group {
   margin-bottom: 24px;
+  padding: 16px;
+  background: rgba(0, 217, 255, 0.05);
+  border: 1px solid var(--harpia-cyan);
+  border-radius: 8px;
+  box-shadow: 0 0 15px rgba(0, 217, 255, 0.2);
 }
 
 .control-group h3 {
   font-size: 1.1em;
   margin: 0 0 16px;
-  color: var(--text-light);
+  background: linear-gradient(90deg, var(--harpia-cyan) 0%, var(--harpia-yellow) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   display: flex;
   align-items: center;
   gap: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  filter: drop-shadow(0 0 8px var(--harpia-cyan-glow));
 }
 
 .group {
@@ -266,18 +295,20 @@ input[type="range"],
 select {
   width: 100%;
   padding: 10px;
-  background: var(--bg-dark-1);
-  border: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--harpia-cyan);
   border-radius: 6px;
-  color: var(--text-light);
+  color: var(--harpia-white);
   font-size: 0.95em;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 8px rgba(0, 217, 255, 0.2);
 }
 
 input:focus, select:focus {
   outline: none;
-  border-color: var(--neon-blue);
-  box-shadow: 0 0 0 3px var(--neon-blue-glow);
+  border-color: var(--harpia-magenta);
+  box-shadow: 0 0 15px var(--harpia-cyan-glow), 0 0 10px var(--harpia-magenta-glow);
+  background: rgba(0, 217, 255, 0.05);
 }
 
 input[type="range"] {
@@ -408,33 +439,41 @@ button:disabled {
   padding: 14px;
   font-size: 1.1em;
   font-weight: bold;
-  background: linear-gradient(90deg, var(--neon-red), #ff785a);
+  background: linear-gradient(135deg, var(--harpia-magenta) 0%, var(--neon-red) 100%);
   color: white;
-  border: none;
-  border-radius: 6px;
-  text-shadow: 0 0 5px rgba(0,0,0,0.5);
+  border: 2px solid var(--harpia-magenta);
+  border-radius: 8px;
+  text-shadow: 0 0 10px rgba(0,0,0,0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px var(--harpia-magenta-glow), 0 2px 10px var(--neon-red-glow);
 }
 .btn-ai:hover:not(:disabled) {
-  box-shadow: 0 0 20px var(--neon-red-glow);
-  transform: scale(1.02);
+  box-shadow: 0 6px 25px var(--harpia-magenta-glow), 0 4px 15px var(--neon-red-glow);
+  transform: translateY(-2px);
+  border-color: var(--neon-red);
 }
 
 .btn-clear {
-  background: transparent;
-  border: 1px solid var(--text-dark);
-  color: var(--text-medium);
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--harpia-yellow);
+  color: var(--harpia-yellow);
   padding: 10px;
   border-radius: 6px;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 10px var(--harpia-yellow-glow);
+  font-weight: 600;
 }
 .btn-clear:hover:not(:disabled) {
-  border-color: var(--neon-red);
-  color: var(--neon-red);
+  border-color: var(--harpia-magenta);
+  color: var(--harpia-magenta);
+  box-shadow: 0 0 15px var(--harpia-magenta-glow);
+  transform: translateY(-1px);
+  box-shadow: 0 0 15px var(--harpia-magenta-glow);
+  transform: translateY(-1px);
 }
 
 /* ========================================
@@ -850,11 +889,11 @@ button:disabled {
   padding: 4px 8px !important;
 }
 
-/* Botão 3D customizado - cores da harpia */
+/* Botão 3D customizado - cores da harpia cyberpunk */
 .btn-3d {
   padding: 12px 20px;
-  background: linear-gradient(135deg, var(--harpia-cyan) 0%, var(--harpia-turquoise) 100%);
-  border: none;
+  background: linear-gradient(135deg, var(--harpia-cyan) 0%, var(--harpia-magenta) 100%);
+  border: 2px solid var(--harpia-cyan);
   border-radius: 12px;
   color: white;
   font-size: 16px;
@@ -865,12 +904,14 @@ button:disabled {
   justify-content: center;
   gap: 8px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px var(--harpia-cyan-glow);
+  box-shadow: 0 4px 15px var(--harpia-cyan-glow), 0 2px 10px var(--harpia-magenta-glow);
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 .btn-3d:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--harpia-cyan-glow);
+  box-shadow: 0 6px 25px var(--harpia-cyan-glow), 0 4px 15px var(--harpia-magenta-glow);
+  border-color: var(--harpia-magenta);
 }
 
 .btn-3d:active {
@@ -985,6 +1026,59 @@ button:disabled {
 }
 
 /* ========================================
+   🔄 MODO FORÇADO MOBILE/DESKTOP
+   ======================================== */
+
+/* Força modo mobile independente da tela */
+.force-mobile .sidebar {
+  width: 100% !important;
+  min-width: 100% !important;
+  height: auto !important;
+  max-height: 60vh !important;
+  border-right: none !important;
+  border-bottom: 2px solid var(--harpia-cyan) !important;
+  position: relative !important;
+  overflow: visible !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.force-mobile .sidebar.collapsed {
+  max-height: 130px !important;
+  overflow: hidden !important;
+}
+
+.force-mobile .sidebar-toggle-mobile {
+  display: block !important;
+}
+
+.force-mobile .main-content {
+  flex: 1 !important;
+  height: calc(100vh - 60vh) !important;
+}
+
+/* Força modo desktop (padrão lateral) */
+.force-desktop .sidebar {
+  width: 380px !important;
+  min-width: 380px !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  border-right: 2px solid var(--harpia-cyan) !important;
+  border-bottom: none !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.force-desktop .sidebar-toggle-mobile {
+  display: none !important;
+}
+
+.force-desktop .main-content {
+  flex: 1 !important;
+  height: 100vh !important;
+}
+
+/* ========================================
    📱 RESPONSIVIDADE MOBILE/TABLET
    ======================================== */
 
@@ -1049,21 +1143,22 @@ button:disabled {
   .sidebar-toggle-mobile {
     width: 100%;
     padding: 12px;
-    background: linear-gradient(135deg, var(--harpia-turquoise) 0%, var(--harpia-yellow) 100%);
-    color: white;
-    border: none;
+    background: linear-gradient(135deg, var(--harpia-cyan) 0%, var(--harpia-yellow) 100%);
+    color: #000;
+    border: 2px solid var(--harpia-cyan);
     border-radius: 8px;
     font-size: 14px;
     font-weight: bold;
     cursor: pointer;
     margin-bottom: 10px;
     transition: all 0.3s ease;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+    box-shadow: 0 2px 10px var(--harpia-cyan-glow);
   }
   
   .sidebar-toggle-mobile:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 184, 204, 0.4);
+    box-shadow: 0 4px 15px var(--harpia-cyan-glow), 0 2px 10px var(--harpia-yellow-glow);
   }
   
   .sidebar-header {
