@@ -80,13 +80,30 @@ function daysAgoStr(n: number) {
   return d.toISOString().slice(0, 10);
 }
 
+// Função para detectar tipo de dispositivo
+type DeviceType = 'mobile' | 'tablet' | 'desktop';
+
+function getDeviceType(): DeviceType {
+  const width = window.innerWidth;
+  if (width < 768) return 'mobile';      // Celular: < 768px
+  if (width < 1024) return 'tablet';     // Tablet: 768px - 1024px
+  return 'desktop';                       // Desktop: > 1024px
+}
+
 // Componente Principal
 export default function App() {
-  // Detectar mobile/tablet
-  const [isMobileDevice] = useState(() => window.innerWidth <= 768);
+  // Detectar tipo de dispositivo automaticamente
+  const [deviceType, setDeviceType] = useState<DeviceType>(getDeviceType());
   const [isTouch] = useState(isTouchDevice());
-  // Estado para forçar modo mobile ou desktop (independente do dispositivo)
-  const [forceMobileMode, setForceMobileMode] = useState(isMobileDevice);
+  
+  // Listener para mudanças de tamanho de tela
+  useEffect(() => {
+    const handleResize = () => {
+      setDeviceType(getDeviceType());
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Navigation state
   const [appState, setAppState] = useState<'loading1' | 'slides' | 'hyperspace' | 'app' | 'tutorial'>('loading1');
@@ -121,8 +138,17 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [is3DMode, setIs3DMode] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(forceMobileMode);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(deviceType === 'mobile');
   const [drawMode, setDrawMode] = useState(false);
+  
+  // Atualizar estado do sidebar quando deviceType mudar
+  useEffect(() => {
+    if (deviceType === 'mobile') {
+      setSidebarCollapsed(true); // Mobile começa colapsado
+    } else {
+      setSidebarCollapsed(false); // Tablet e Desktop começam expandidos
+    }
+  }, [deviceType]);
 
   // Função para formatar popups do GeoJSON
   const formatGeoJSONPopup = (properties: any): string => {
@@ -858,11 +884,11 @@ export default function App() {
 
   // Main app
   return (
-    <div className={`app ${isTouch ? 'touch-device' : 'desktop-device'} ${forceMobileMode ? 'force-mobile' : 'force-desktop'}`}>
+    <div className={`app ${isTouch ? 'touch-device' : 'desktop-device'} device-${deviceType}`}>
       <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
         
-        {/* Botão toggle PC/Mobile - só aparece em modo mobile */}
-        {forceMobileMode && (
+        {/* Botão toggle - aparece em mobile e tablet */}
+        {(deviceType === 'mobile' || deviceType === 'tablet') && (
           <button 
             className="sidebar-toggle-mobile" 
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -876,31 +902,6 @@ export default function App() {
         <header className="sidebar-header">
           <h1>HARP-IA</h1>
           <p>Análise Geoespacial com IA</p>
-          
-          {/* Botão para alternar entre modo PC e Mobile */}
-          <button 
-            onClick={() => setForceMobileMode(!forceMobileMode)}
-            style={{
-              marginTop: '10px',
-              padding: '8px 12px',
-              background: 'linear-gradient(135deg, var(--harpia-yellow) 0%, var(--harpia-cyan) 100%)',
-              border: '2px solid var(--harpia-cyan)',
-              borderRadius: '8px',
-              color: '#000',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              width: '100%',
-              boxShadow: '0 2px 10px var(--harpia-cyan-glow)'
-            }}
-          >
-            <i className={`icofont-${forceMobileMode ? 'computer' : 'mobile-phone'}`}></i>
-            Modo {forceMobileMode ? 'PC' : 'Mobile'}
-          </button>
         </header>
 
         <div className="sidebar-content">
@@ -971,14 +972,6 @@ export default function App() {
         </div>
 
         <footer className="sidebar-footer">
-          {isMobileDevice && (
-            <button 
-              className="sidebar-toggle-mobile"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            >
-              {sidebarCollapsed ? '▲ Expandir Painel' : '▼ Recolher Painel'}
-            </button>
-          )}
           <button 
             className="btn-draw" 
             onClick={toggleDrawMode}
