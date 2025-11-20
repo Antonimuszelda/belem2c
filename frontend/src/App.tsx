@@ -964,7 +964,7 @@ export default function App() {
               disabled={polygon.length < 3 || !!loading.geojson}
               style={{ width: '100%' }}
             >
-              <i className="icofont-home"></i> {loading.geojson ? 'Carregando Favelas...' : 'Carregar Favelas na Área'}
+              <i className="icofont-home"></i> {loading.geojson ? 'Carregando...' : 'Carregar Favelas e Comunidades'}
             </button>
           </div>
 

@@ -6,7 +6,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0e27 50%, #000000 100%);
+  background: radial-gradient(ellipse at center, rgba(0, 217, 255, 0.1) 0%, rgba(196, 184, 46, 0.05) 20%, #0a0e27 50%, #000000 100%);
   overflow: hidden;
   z-index: 10000;
 }

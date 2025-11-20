@@ -1034,27 +1034,50 @@ button:disabled {
   width: 100% !important;
   min-width: 100% !important;
   height: auto !important;
-  max-height: 60vh !important;
+  max-height: 80vh !important;
   border-right: none !important;
   border-bottom: 2px solid var(--harpia-cyan) !important;
   position: relative !important;
-  overflow: visible !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   display: flex !important;
   flex-direction: column !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 .force-mobile .sidebar.collapsed {
-  max-height: 130px !important;
+  max-height: 140px !important;
   overflow: hidden !important;
 }
 
 .force-mobile .sidebar-toggle-mobile {
   display: block !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  background: rgba(10, 10, 15, 0.98) !important;
+}
+
+.force-mobile .sidebar-content {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 15px !important;
+  min-height: 0 !important;
+}
+
+.force-mobile .sidebar-footer {
+  position: sticky !important;
+  bottom: 0 !important;
+  background: rgba(10, 10, 15, 0.98) !important;
+  padding: 15px !important;
+  border-top: 2px solid var(--harpia-cyan) !important;
+  z-index: 10 !important;
 }
 
 .force-mobile .main-content {
   flex: 1 !important;
-  height: calc(100vh - 60vh) !important;
+  height: auto !important;
+  min-height: 50vh !important;
 }
 
 /* Força modo desktop (padrão lateral) */
