@@ -146,7 +146,7 @@ class LayerRequest(BaseModel):
     end_date: Optional[str] = None
     layer_type: str = Field(
         default="SENTINEL2_RGB",
-        pattern="^(SENTINEL2_RGB|LANDSAT_RGB|SENTINEL1_VV|NDVI|NDWI|LST|UHI|UTFVI|DEM)$"
+        pattern="^(SENTINEL2_RGB|LANDSAT_RGB|SENTINEL1_VV|SENTINEL1_VH|NDVI|NDWI|LST_SAR|UHI_SAR|UTFVI_SAR|DEM)$"
     )
     cloud_percentage: int = Field(default=20, ge=0, le=100)
     specific_date: Optional[str] = None  # Para carregar uma imagem de data específica
@@ -336,7 +336,7 @@ async def list_images(request: LayerRequest):
             satellite_name = "Sentinel-2"
             cloud_property = "CLOUDY_PIXEL_PERCENTAGE"
             
-        elif request.layer_type in ["LANDSAT_RGB", "LST", "UHI", "UTFVI"]:
+        elif request.layer_type in ["LANDSAT_RGB"]:
             # Para camadas térmicas, limitar a 2024
             user_end_date = datetime.strptime(end_date, "%Y-%m-%d")
             max_date = datetime.strptime("2024-12-31", "%Y-%m-%d")
@@ -410,7 +410,7 @@ async def list_images(request: LayerRequest):
                 cloud_cover = 0.0
             
             # Determinar satélite específico
-            if request.layer_type in ["LANDSAT_RGB", "LST", "UHI", "UTFVI"]:
+            if request.layer_type in ["LANDSAT_RGB"]:
                 spacecraft = props.get('SPACECRAFT_ID', satellite_name)
                 if 'LANDSAT_8' in spacecraft:
                     sat_name = "Landsat 8"
@@ -522,9 +522,24 @@ async def get_tile(request: LayerRequest):
             )
             s1_image = collection.first()
             if s1_image is None:
-                raise HTTPException(status_code=404, detail="Nenhuma imagem Sentinel-1 encontrada para o período.")
+                raise HTTPException(status_code=404, detail="Nenhuma imagem Sentinel-1 VV encontrada para o período.")
             image = s1_image.clip(geometry)
             vis_params = {'bands': ['VV'], 'min': -25, 'max': 0}
+
+        elif request.layer_type == "SENTINEL1_VH":
+            collection = (
+                ee.ImageCollection('COPERNICUS/S1_GRD')
+                .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
+                .filter(ee.Filter.eq('instrumentMode', 'IW'))
+                .filterBounds(geometry)
+                .filterDate(start_date, end_date)
+                .sort("system:time_start", False)
+            )
+            s1_image = collection.first()
+            if s1_image is None:
+                raise HTTPException(status_code=404, detail="Nenhuma imagem Sentinel-1 VH encontrada para o período.")
+            image = s1_image.select('VH').clip(geometry)
+            vis_params = {'bands': ['VH'], 'min': -30, 'max': -5}
 
         elif request.layer_type == "NDVI":
             s2_image = s2_collection.first()
@@ -556,99 +571,80 @@ async def get_tile(request: LayerRequest):
                 'palette': ['#b71c1c', '#ffff00', '#00ffff', '#0d47a1'] # Vermelho -> Amarelo -> Ciano -> Azul
             }
         
-        elif request.layer_type == "LST":
-            # Lógica aprimorada baseada no script GEE, com restrição de data
+        elif request.layer_type == "LST_SAR":
+            # LST estimada via Sentinel-1 SAR (atravessa nuvens)
+            # Backscatter baixo (VV) = superfície seca/quente
+            # Backscatter alto (VV) = superfície úmida/fria
             
-            # Garante que a data final não passe de 2024-12-31
-            user_end_date = datetime.strptime(end_date, "%Y-%m-%d")
-            max_date = datetime.strptime("2024-12-31", "%Y-%m-%d")
-            effective_end_date = min(user_end_date, max_date)
+            s1_collection = (
+                ee.ImageCollection('COPERNICUS/S1_GRD')
+                .filterBounds(geometry)
+                .filterDate(start_date, end_date)
+                .filter(ee.Filter.eq('instrumentMode', 'IW'))
+                .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+                .select('VV')
+            )
             
-            # Usa o período completo fornecido pelo usuário (limitado a 2024)
-            user_start_date = datetime.strptime(start_date, "%Y-%m-%d")
-            effective_start_date = min(user_start_date, max_date)
-            
-            search_start_date = effective_start_date.strftime("%Y-%m-%d")
-            search_end_date = effective_end_date.strftime("%Y-%m-%d")
-            
-            print(f"LST: Buscando entre {search_start_date} e {search_end_date}")
-
-            landsat8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2").filterBounds(geometry).filterDate(search_start_date, search_end_date).filter(ee.Filter.lt("CLOUD_COVER", request.cloud_percentage))
-            landsat9 = ee.ImageCollection("LANDSAT/LC09/C02/T1_L2").filterBounds(geometry).filterDate(search_start_date, search_end_date).filter(ee.Filter.lt("CLOUD_COVER", request.cloud_percentage))
-            
-            collection = landsat8.merge(landsat9).sort("CLOUD_COVER")
-            
-            # Se data específica, pega apenas uma imagem. Senão, faz mosaico das 3 melhores
             if request.specific_date:
-                landsat_image = collection.first()
-                if not landsat_image.getInfo():
-                    raise HTTPException(status_code=404, detail="Imagem Landsat (até 2024) para LST não encontrada na data específica.")
+                s1_image = s1_collection.first()
+                if not s1_image.getInfo():
+                    raise HTTPException(status_code=404, detail="Imagem Sentinel-1 SAR não encontrada na data específica.")
             else:
-                # Mosaico das 3 melhores imagens para evitar falhas
-                top_images = collection.limit(3)
-                if top_images.size().getInfo() == 0:
-                    raise HTTPException(status_code=404, detail="Imagens Landsat (até 2024) necessárias para LST não encontradas.")
-                landsat_image = top_images.median()  # Usa mediana para composição
+                if s1_collection.size().getInfo() == 0:
+                    raise HTTPException(status_code=404, detail="Imagens Sentinel-1 SAR não encontradas.")
+                s1_image = s1_collection.median()
             
-            # Aplicar fator de escala térmico
-            thermal_band = landsat_image.select('ST_B10').multiply(0.00341802).add(149.0)
-            # Converter Kelvin para Celsius
-            lst_celsius = thermal_band.subtract(273.15)
+            # Inverter backscatter: VV baixo = temperatura alta
+            # Normalizar para escala de temperatura (~20-45°C)
+            vv = s1_image.select('VV')
+            # VV típico: -25 a -5 dB
+            # Mapear: -25 dB -> 45°C (seco/quente), -5 dB -> 20°C (úmido/frio)
+            lst_estimated = vv.multiply(-1.25).add(13.75)  # Fórmula linear invertida
             
-            image = lst_celsius.clip(geometry)
+            image = lst_estimated.clip(geometry)
             vis_params = {
                 'min': 20, 'max': 45,
                 'palette': ['blue', 'cyan', 'green', 'yellow', 'orange', 'red', 'darkred']
             }
 
-        elif request.layer_type == "UHI":
-            # Lógica aprimorada com restrição de data
-            user_end_date = datetime.strptime(end_date, "%Y-%m-%d")
-            max_date = datetime.strptime("2024-12-31", "%Y-%m-%d")
-            effective_end_date = min(user_end_date, max_date)
+        elif request.layer_type == "UHI_SAR":
+            # Urban Heat Island via Sentinel-1 SAR
+            # Áreas urbanas têm backscatter característico
             
-            # Usa o período completo fornecido pelo usuário (limitado a 2024)
-            user_start_date = datetime.strptime(start_date, "%Y-%m-%d")
-            effective_start_date = min(user_start_date, max_date)
+            s1_collection = (
+                ee.ImageCollection('COPERNICUS/S1_GRD')
+                .filterBounds(geometry)
+                .filterDate(start_date, end_date)
+                .filter(ee.Filter.eq('instrumentMode', 'IW'))
+                .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+                .select('VV')
+            )
             
-            search_start_date = effective_start_date.strftime("%Y-%m-%d")
-            search_end_date = effective_end_date.strftime("%Y-%m-%d")
-            
-            print(f"UHI: Buscando entre {search_start_date} e {search_end_date}")
-
-            landsat8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2").filterBounds(geometry).filterDate(search_start_date, search_end_date).filter(ee.Filter.lt("CLOUD_COVER", request.cloud_percentage))
-            landsat9 = ee.ImageCollection("LANDSAT/LC09/C02/T1_L2").filterBounds(geometry).filterDate(search_start_date, search_end_date).filter(ee.Filter.lt("CLOUD_COVER", request.cloud_percentage))
-            
-            collection = landsat8.merge(landsat9).sort("CLOUD_COVER")
-            
-            # Mosaico das 3 melhores imagens
             if request.specific_date:
-                landsat_image = collection.first()
-                if not landsat_image.getInfo():
-                    raise HTTPException(status_code=404, detail="Imagem Landsat (até 2024) para UHI não encontrada na data específica.")
+                s1_image = s1_collection.first()
+                if not s1_image.getInfo():
+                    raise HTTPException(status_code=404, detail="Imagem Sentinel-1 SAR não encontrada.")
             else:
-                top_images = collection.limit(3)
-                if top_images.size().getInfo() == 0:
-                    raise HTTPException(status_code=404, detail="Imagens Landsat (até 2024) necessárias para UHI não encontradas.")
-                landsat_image = top_images.median()
+                if s1_collection.size().getInfo() == 0:
+                    raise HTTPException(status_code=404, detail="Imagens Sentinel-1 SAR não encontradas.")
+                s1_image = s1_collection.median()
             
-            # LST em Celsius
-            thermal_band = landsat_image.select('ST_B10').multiply(0.00341802).add(149.0)
-            lst_celsius = thermal_band.subtract(273.15)
+            vv = s1_image.select('VV')
+            lst_estimated = vv.multiply(-1.25).add(13.75)
             
-            # Calcular estatísticas da área
-            lst_clipped = lst_celsius.clip(geometry)
+            # Calcular UHI normalizado
+            lst_clipped = lst_estimated.clip(geometry)
             lst_stats = lst_clipped.reduceRegion(
                 reducer=ee.Reducer.mean().combine(ee.Reducer.stdDev(), None, True),
                 geometry=geometry,
-                scale=30,
+                scale=10,
                 maxPixels=1e9
             )
             
-            lst_mean = ee.Number(lst_stats.get('ST_B10_mean'))
-            lst_std = ee.Number(lst_stats.get('ST_B10_stdDev'))
+            lst_mean = ee.Number(lst_stats.get('VV_mean'))
+            lst_std = ee.Number(lst_stats.get('VV_stdDev'))
             
-            # UHI = (LST - LST_mean) / LST_stdDev
+            # UHI = (LST - mean) / stdDev
             uhi = lst_clipped.subtract(lst_mean).divide(lst_std)
             image = uhi
             vis_params = {
@@ -656,53 +652,43 @@ async def get_tile(request: LayerRequest):
                 'palette': ['313695', '74add1', 'fed976', 'feb24c', 'fd8d3c', 'fc4e2a', 'e31a1c', 'b10026']
             }
 
-        elif request.layer_type == "UTFVI":
-            # Lógica aprimorada com restrição de data
-            user_end_date = datetime.strptime(end_date, "%Y-%m-%d")
-            max_date = datetime.strptime("2024-12-31", "%Y-%m-%d")
-            effective_end_date = min(user_end_date, max_date)
+        elif request.layer_type == "UTFVI_SAR":
+            # UTFVI via Sentinel-1 SAR (Urban Thermal Field Variance Index)
+            # Índice de variação térmica urbana baseado em backscatter
             
-            # Usa o período completo fornecido pelo usuário (limitado a 2024)
-            user_start_date = datetime.strptime(start_date, "%Y-%m-%d")
-            effective_start_date = min(user_start_date, max_date)
+            s1_collection = (
+                ee.ImageCollection('COPERNICUS/S1_GRD')
+                .filterBounds(geometry)
+                .filterDate(start_date, end_date)
+                .filter(ee.Filter.eq('instrumentMode', 'IW'))
+                .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+                .select('VV')
+            )
             
-            search_start_date = effective_start_date.strftime("%Y-%m-%d")
-            search_end_date = effective_end_date.strftime("%Y-%m-%d")
-
-            print(f"UTFVI: Buscando entre {search_start_date} e {search_end_date}")
-            
-            landsat8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2").filterBounds(geometry).filterDate(search_start_date, search_end_date).filter(ee.Filter.lt("CLOUD_COVER", request.cloud_percentage))
-            landsat9 = ee.ImageCollection("LANDSAT/LC09/C02/T1_L2").filterBounds(geometry).filterDate(search_start_date, search_end_date).filter(ee.Filter.lt("CLOUD_COVER", request.cloud_percentage))
-            
-            collection = landsat8.merge(landsat9).sort("CLOUD_COVER")
-            
-            # Mosaico das 3 melhores imagens
             if request.specific_date:
-                landsat_image = collection.first()
-                if not landsat_image.getInfo():
-                    raise HTTPException(status_code=404, detail="Imagem Landsat (até 2024) para UTFVI não encontrada na data específica.")
+                s1_image = s1_collection.first()
+                if not s1_image.getInfo():
+                    raise HTTPException(status_code=404, detail="Imagem Sentinel-1 SAR não encontrada.")
             else:
-                top_images = collection.limit(3)
-                if top_images.size().getInfo() == 0:
-                    raise HTTPException(status_code=404, detail="Imagens Landsat (até 2024) necessárias para UTFVI não encontradas.")
-                landsat_image = top_images.median()
+                if s1_collection.size().getInfo() == 0:
+                    raise HTTPException(status_code=404, detail="Imagens Sentinel-1 SAR não encontradas.")
+                s1_image = s1_collection.median()
             
-            # LST em Celsius
-            thermal_band = landsat_image.select('ST_B10').multiply(0.00341802).add(149.0)
-            lst_celsius = thermal_band.subtract(273.15)
+            vv = s1_image.select('VV')
+            lst_estimated = vv.multiply(-1.25).add(13.75)
             
-            # Calcular média
-            lst_clipped = lst_celsius.clip(geometry)
+            # Calcular UTFVI
+            lst_clipped = lst_estimated.clip(geometry)
             lst_stats = lst_clipped.reduceRegion(
                 reducer=ee.Reducer.mean(),
                 geometry=geometry,
-                scale=30,
+                scale=10,
                 maxPixels=1e9
             )
             
-            lst_mean = ee.Number(lst_stats.get('ST_B10'))
+            lst_mean = ee.Number(lst_stats.get('VV'))
             
-            # UTFVI = (LST - LST_mean) / LST
+            # UTFVI = (LST - mean) / LST
             utfvi = lst_clipped.subtract(lst_mean).divide(lst_clipped)
             image = utfvi
             vis_params = {

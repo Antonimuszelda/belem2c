@@ -57,7 +57,7 @@ class ErrorBoundary extends Component<
 
 // Tipos
 type Coordinate = { lat: number; lng: number };
-type LayerType = "SENTINEL2_RGB" | "LANDSAT_RGB" | "SENTINEL1_VV" | "NDVI" | "NDWI" | "LST" | "UHI" | "UTFVI" | "DEM";
+type LayerType = "SENTINEL2_RGB" | "LANDSAT_RGB" | "SENTINEL1_VV" | "SENTINEL1_VH" | "NDVI" | "NDWI" | "LST_SAR" | "UHI_SAR" | "UTFVI_SAR" | "DEM";
 type ActiveLayers = Partial<Record<LayerType, string>>;
 type ImageItem = { date: string; cloud_cover: number; satellite: string };
 
@@ -122,11 +122,12 @@ export default function App() {
     SENTINEL2_RGB: 1.0,
     LANDSAT_RGB: 1.0,
     SENTINEL1_VV: 0.8,
+    SENTINEL1_VH: 0.8,
     NDVI: 0.7,
     NDWI: 0.7,
-    LST: 0.7,
-    UHI: 0.8,
-    UTFVI: 0.8,
+    LST_SAR: 0.7,
+    UHI_SAR: 0.8,
+    UTFVI_SAR: 0.8,
     DEM: 0.6,
   });
   const [geojsonLayerData, setGeojsonLayerData] = useState<any>(null);
@@ -1170,11 +1171,12 @@ export default function App() {
 const layerDefs: Record<LayerType, { name: string; icon: string }> = {
   SENTINEL2_RGB: { name: "Sentinel-2 (RGB)", icon: "icofont-satellite" },
   LANDSAT_RGB: { name: "Landsat (RGB)", icon: "icofont-satellite-alt" },
-  SENTINEL1_VV: { name: "Sentinel-1 (Radar)", icon: "icofont-radar" },
+  SENTINEL1_VV: { name: "SAR VV (Vertical)", icon: "icofont-radar" },
+  SENTINEL1_VH: { name: "SAR VH (Cruzada)", icon: "icofont-radio-active" },
   NDVI: { name: "Vegetação (NDVI)", icon: "icofont-leaf" },
   NDWI: { name: "Água (NDWI)", icon: "icofont-water-drop" },
-  LST: { name: "Temperatura (LST)", icon: "icofont-thermometer-alt" },
-  UHI: { name: "Ilha de Calor (UHI)", icon: "icofont-fire-burn" },
-  UTFVI: { name: "Variação Térmica (UTFVI)", icon: "icofont-chart-bar-graph" },
+  LST_SAR: { name: "🛰️ Temperatura SAR", icon: "icofont-thermometer-alt" },
+  UHI_SAR: { name: "🛰️ Ilha de Calor SAR", icon: "icofont-fire-burn" },
+  UTFVI_SAR: { name: "🛰️ Variação Térmica SAR", icon: "icofont-chart-bar-graph" },
   DEM: { name: "Elevação (DEM)", icon: "icofont-mountain" },
 };
