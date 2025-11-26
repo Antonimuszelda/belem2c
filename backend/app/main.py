@@ -146,7 +146,7 @@ class LayerRequest(BaseModel):
     end_date: Optional[str] = None
     layer_type: str = Field(
         default="SENTINEL2_RGB",
-        pattern="^(SENTINEL2_RGB|LANDSAT_RGB|SENTINEL1_VV|SENTINEL1_VH|NDVI|NDWI|LST_SAR|UHI_SAR|UTFVI_SAR|DEM)$"
+        pattern="^(SENTINEL2_RGB|LANDSAT_RGB|SENTINEL1_VV|NDVI|NDWI|LST|UHI|UTFVI|DEM)$"
     )
     cloud_percentage: int = Field(default=20, ge=0, le=100)
     specific_date: Optional[str] = None  # Para carregar uma imagem de data específica
@@ -336,7 +336,7 @@ async def list_images(request: LayerRequest):
             satellite_name = "Sentinel-2"
             cloud_property = "CLOUDY_PIXEL_PERCENTAGE"
             
-        elif request.layer_type in ["LANDSAT_RGB"]:
+        elif request.layer_type in ["LANDSAT_RGB", "LST", "UHI", "UTFVI"]:
             # Para camadas térmicas, limitar a 2024
             user_end_date = datetime.strptime(end_date, "%Y-%m-%d")
             max_date = datetime.strptime("2024-12-31", "%Y-%m-%d")
@@ -410,7 +410,7 @@ async def list_images(request: LayerRequest):
                 cloud_cover = 0.0
             
             # Determinar satélite específico
-            if request.layer_type in ["LANDSAT_RGB"]:
+            if request.layer_type in ["LANDSAT_RGB", "LST", "UHI", "UTFVI"]:
                 spacecraft = props.get('SPACECRAFT_ID', satellite_name)
                 if 'LANDSAT_8' in spacecraft:
                     sat_name = "Landsat 8"
@@ -522,24 +522,9 @@ async def get_tile(request: LayerRequest):
             )
             s1_image = collection.first()
             if s1_image is None:
-                raise HTTPException(status_code=404, detail="Nenhuma imagem Sentinel-1 VV encontrada para o período.")
+                raise HTTPException(status_code=404, detail="Nenhuma imagem Sentinel-1 encontrada para o período.")
             image = s1_image.clip(geometry)
             vis_params = {'bands': ['VV'], 'min': -25, 'max': 0}
-
-        elif request.layer_type == "SENTINEL1_VH":
-            collection = (
-                ee.ImageCollection('COPERNICUS/S1_GRD')
-                .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
-                .filter(ee.Filter.eq('instrumentMode', 'IW'))
-                .filterBounds(geometry)
-                .filterDate(start_date, end_date)
-                .sort("system:time_start", False)
-            )
-            s1_image = collection.first()
-            if s1_image is None:
-                raise HTTPException(status_code=404, detail="Nenhuma imagem Sentinel-1 VH encontrada para o período.")
-            image = s1_image.select('VH').clip(geometry)
-            vis_params = {'bands': ['VH'], 'min': -30, 'max': -5}
 
         elif request.layer_type == "NDVI":
             s2_image = s2_collection.first()
