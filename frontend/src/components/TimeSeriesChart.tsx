@@ -243,7 +243,7 @@ export default function TimeSeriesChart({ data, title, onClose, initialChart = '
                     border: '1px solid #00d9ff',
                     borderRadius: '8px'
                   }}
-                  labelFormatter={(date) => new Date(date).toLocaleDateString('pt-BR')}
+                  labelFormatter={(date: string) => new Date(date).toLocaleDateString('pt-BR')}
                 />
                 <Legend />
                 <Area 
@@ -254,7 +254,7 @@ export default function TimeSeriesChart({ data, title, onClose, initialChart = '
                   fill="url(#colorTemp)"
                   name="Temperatura (°C)"
                 />
-              </AreaChart>;
+              </AreaChart>
             })()}
 
             {activeChart === 'vegetation' && (() => {
@@ -265,7 +265,7 @@ export default function TimeSeriesChart({ data, title, onClose, initialChart = '
                 <XAxis 
                   dataKey="date" 
                   stroke="#888"
-                  tickFormatter={(date) => new Date(date).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' })}
+                  tickFormatter={(date: string) => new Date(date).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' })}
                 />
                 <YAxis stroke="#888" domain={[-1, 1]} />
                 <Tooltip 
@@ -274,7 +274,7 @@ export default function TimeSeriesChart({ data, title, onClose, initialChart = '
                     border: '1px solid #00e676',
                     borderRadius: '8px'
                   }}
-                  labelFormatter={(date) => new Date(date).toLocaleDateString('pt-BR')}
+                  labelFormatter={(date: string) => new Date(date).toLocaleDateString('pt-BR')}
                 />
                 <Legend />
                 <Line 
@@ -285,7 +285,7 @@ export default function TimeSeriesChart({ data, title, onClose, initialChart = '
                   dot={{ fill: '#00e676', r: 4 }}
                   name="NDVI"
                 />
-              </LineChart>;
+              </LineChart>
             })()}
 
             {activeChart === 'water' && (() => {
@@ -305,7 +305,7 @@ export default function TimeSeriesChart({ data, title, onClose, initialChart = '
                     border: '1px solid #2962ff',
                     borderRadius: '8px'
                   }}
-                  labelFormatter={(date) => new Date(date).toLocaleDateString('pt-BR')}
+                  labelFormatter={(date: string) => new Date(date).toLocaleDateString('pt-BR')}
                 />
                 <Legend />
                 <Line 
@@ -327,7 +327,7 @@ export default function TimeSeriesChart({ data, title, onClose, initialChart = '
                     yAxisId="right"
                   />
                 )}
-              </LineChart>;
+              </LineChart>
             })()}
 
             {activeChart === 'radar' && (
