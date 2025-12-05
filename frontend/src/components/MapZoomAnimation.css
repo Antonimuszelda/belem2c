@@ -1,0 +1,219 @@
+/* 🌍 Map Zoom Animation Styles */
+
+.map-zoom-animation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3a 50%, #0a0a1a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.zoom-map-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zoom-earth {
+  position: relative;
+  width: 400px;
+  height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+}
+
+.earth-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 50px rgba(0, 200, 255, 0.3));
+}
+
+/* Fallback quando imagem não existe */
+.zoom-earth::before {
+  content: '🌎';
+  position: absolute;
+  font-size: 200px;
+  opacity: 0.8;
+}
+
+.focus-ring {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border: 2px solid rgba(0, 200, 255, 0.5);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.focus-ring.ring-1 {
+  border-color: rgba(255, 100, 100, 0.6);
+}
+
+.focus-ring.ring-2 {
+  border-color: rgba(255, 200, 0, 0.4);
+  width: 180px;
+  height: 180px;
+}
+
+.target-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 10;
+}
+
+.marker-icon {
+  font-size: 48px;
+  animation: pulse-marker 1s ease-in-out infinite;
+}
+
+@keyframes pulse-marker {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.marker-label {
+  background: rgba(0, 200, 255, 0.2);
+  border: 1px solid rgba(0, 200, 255, 0.5);
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: #00c8ff;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+  backdrop-filter: blur(5px);
+}
+
+.zoom-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 40px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.zoom-info {
+  text-align: center;
+  color: white;
+}
+
+.zoom-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(0, 200, 255, 0.5);
+}
+
+.title-icon {
+  font-size: 36px;
+}
+
+.zoom-subtitle {
+  margin: 10px 0 0 0;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.coordinates-display {
+  margin-top: 15px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  color: #00c8ff;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 200, 255, 0.3);
+}
+
+.zoom-progress {
+  height: 3px;
+  background: linear-gradient(90deg, #00c8ff, #00ff88);
+  border-radius: 3px;
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+  position: absolute;
+  bottom: 0;
+  left: 0;
+}
+
+/* Particles/Stars background */
+.map-zoom-animation::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(2px 2px at 20px 30px, white, transparent),
+    radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 90px 40px, white, transparent),
+    radial-gradient(2px 2px at 130px 80px, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 160px 120px, white, transparent),
+    radial-gradient(1px 1px at 200px 50px, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(2px 2px at 250px 150px, white, transparent),
+    radial-gradient(1px 1px at 300px 100px, rgba(255, 255, 255, 0.5), transparent);
+  background-size: 300px 200px;
+  animation: stars-move 20s linear infinite;
+  opacity: 0.5;
+}
+
+@keyframes stars-move {
+  from { transform: translateY(0); }
+  to { transform: translateY(-200px); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .zoom-earth {
+    width: 250px;
+    height: 250px;
+  }
+
+  .zoom-earth::before {
+    font-size: 120px;
+  }
+
+  .zoom-title {
+    font-size: 24px;
+  }
+
+  .marker-icon {
+    font-size: 32px;
+  }
+
+  .marker-label {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+}

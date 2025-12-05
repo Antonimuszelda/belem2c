@@ -1,0 +1,479 @@
+/* 🤖 AI Analyst Modal - Futuristic Analysis Interface */
+
+.ai-analyst-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  
+  animation: overlayFadeIn 0.3s ease-out;
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(10px);
+  }
+}
+
+.ai-analyst-modal {
+  position: relative;
+  width: 100%;
+  max-width: 650px;
+  max-height: 85vh;
+  
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(30px);
+  border: 2px solid rgba(0, 217, 255, 0.4);
+  border-radius: 20px;
+  
+  box-shadow: 
+    0 20px 80px rgba(0, 0, 0, 0.8),
+    0 0 60px rgba(0, 217, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  
+  overflow-y: auto;
+  
+  animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Close Button */
+.modal-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  
+  width: 32px;
+  height: 32px;
+  
+  background: rgba(255, 0, 0, 0.2);
+  border: 1px solid rgba(255, 0, 0, 0.4);
+  border-radius: 50%;
+  
+  color: white;
+  font-size: 1rem;
+  font-weight: bold;
+  
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 0, 0, 0.4);
+  border-color: rgba(255, 0, 0, 0.8);
+  box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+  transform: scale(1.1) rotate(90deg);
+}
+
+/* Header */
+.modal-header {
+  padding: 24px 24px 20px 24px;
+  border-bottom: 1px solid rgba(0, 217, 255, 0.2);
+  background: linear-gradient(135deg, rgba(0, 217, 255, 0.15) 0%, rgba(255, 0, 160, 0.15) 100%);
+  text-align: center;
+}
+
+.header-icon {
+  font-size: 2.2rem;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 0 20px rgba(0, 217, 255, 0.8));
+  animation: headerIconFloat 3s ease-in-out infinite;
+}
+
+@keyframes headerIconFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, var(--harpia-cyan), var(--harpia-magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 30px var(--harpia-cyan-glow);
+}
+
+.modal-subtitle {
+  margin: 6px 0 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
+
+/* Analysis Progress */
+.analysis-progress {
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1px solid rgba(0, 217, 255, 0.3);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--harpia-cyan), var(--harpia-magenta));
+  transition: width 0.3s ease;
+  box-shadow: 0 0 20px var(--harpia-cyan-glow);
+  animation: progressPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes progressPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.progress-text {
+  font-size: 1rem;
+  color: var(--harpia-cyan);
+  font-weight: 600;
+  text-shadow: 0 0 10px var(--harpia-cyan-glow);
+  margin: 0;
+}
+
+/* Results */
+.analysis-results {
+  padding: 24px;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.metric-card {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0, 217, 255, 0.2);
+}
+
+.metric-card.temperature {
+  border-color: rgba(255, 23, 68, 0.4);
+  box-shadow: 0 0 20px rgba(255, 23, 68, 0.1);
+}
+
+.metric-card.vegetation {
+  border-color: rgba(0, 230, 118, 0.4);
+  box-shadow: 0 0 20px rgba(0, 230, 118, 0.1);
+}
+
+.metric-card.flood-risk {
+  border-color: var(--risk-color);
+  box-shadow: 0 0 20px var(--risk-color);
+}
+
+.metric-icon {
+  font-size: 2rem;
+  filter: drop-shadow(0 0 10px currentColor);
+}
+
+.metric-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--harpia-cyan);
+  text-shadow: 0 0 15px var(--harpia-cyan-glow);
+}
+
+.metric-subvalue {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 2px;
+}
+
+.metric-card.favelas {
+  border-color: rgba(255, 200, 0, 0.4);
+  background: linear-gradient(135deg, rgba(255, 200, 0, 0.1), rgba(255, 150, 0, 0.05));
+}
+
+.metric-card.favelas .metric-icon {
+  background: rgba(255, 200, 0, 0.2);
+}
+
+.metric-card.favelas .metric-value {
+  color: var(--harpia-yellow);
+  text-shadow: 0 0 15px rgba(255, 200, 0, 0.5);
+}
+
+/* Heat Island Card */
+.metric-card.heat-island {
+  border-color: rgba(255, 100, 0, 0.5);
+  background: linear-gradient(135deg, rgba(255, 100, 0, 0.15), rgba(255, 50, 0, 0.05));
+}
+
+.metric-card.heat-island .metric-icon {
+  color: #ff6400;
+}
+
+.metric-card.heat-island .metric-value {
+  color: #ff8c00;
+  text-shadow: 0 0 15px rgba(255, 140, 0, 0.5);
+}
+
+/* Drought Risk Card */
+.metric-card.drought-risk {
+  border-color: rgba(210, 180, 140, 0.5);
+  background: linear-gradient(135deg, rgba(210, 180, 140, 0.15), rgba(139, 90, 43, 0.05));
+}
+
+.metric-card.drought-risk .metric-icon {
+  color: #d2b48c;
+}
+
+.metric-card.drought-risk .metric-value {
+  color: #d2b48c;
+  text-shadow: 0 0 15px rgba(210, 180, 140, 0.5);
+}
+
+/* Environmental Risk Banner */
+.environmental-risk-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.6), rgba(var(--risk-color-rgb, 255, 87, 34), 0.15));
+  border: 2px solid var(--risk-color, #ff5722);
+  border-radius: 16px;
+  box-shadow: 
+    0 0 30px var(--risk-color, #ff5722),
+    inset 0 0 60px rgba(var(--risk-color-rgb, 255, 87, 34), 0.1);
+  animation: riskPulse 2s ease-in-out infinite;
+}
+
+@keyframes riskPulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 30px var(--risk-color, #ff5722),
+      inset 0 0 60px rgba(var(--risk-color-rgb, 255, 87, 34), 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 0 50px var(--risk-color, #ff5722),
+      inset 0 0 80px rgba(var(--risk-color-rgb, 255, 87, 34), 0.2);
+  }
+}
+
+.environmental-risk-banner .banner-icon {
+  font-size: 2.5rem;
+  filter: drop-shadow(0 0 15px var(--risk-color, #ff5722));
+  animation: iconPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.environmental-risk-banner .banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.environmental-risk-banner .banner-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.environmental-risk-banner .banner-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--risk-color, #ff5722);
+  text-shadow: 0 0 20px var(--risk-color, #ff5722);
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+
+/* AI Summary Text for multi-line */
+.ai-summary-text {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: justify;
+  white-space: pre-wrap;
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.risk-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  background: var(--risk-color);
+  color: black;
+  font-weight: 800;
+  text-shadow: none;
+  box-shadow: 0 0 20px var(--risk-color);
+}
+
+/* Sections */
+.ai-summary-section,
+.recommendations-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 217, 255, 0.2);
+  border-radius: 10px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--harpia-cyan);
+  text-shadow: 0 0 10px var(--harpia-cyan-glow);
+}
+
+.section-icon {
+  font-size: 1.5rem;
+  filter: drop-shadow(0 0 10px var(--harpia-cyan-glow));
+}
+
+.recommendations-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recommendation-item {
+  padding: 12px 16px;
+  background: rgba(0, 217, 255, 0.1);
+  border-left: 3px solid var(--harpia-cyan);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.9);
+  transition: all 0.2s ease;
+}
+
+.recommendation-item:hover {
+  background: rgba(0, 217, 255, 0.15);
+  border-left-width: 5px;
+  transform: translateX(4px);
+}
+
+/* Scrollbar */
+.ai-analyst-modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ai-analyst-modal::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.ai-analyst-modal::-webkit-scrollbar-thumb {
+  background: rgba(0, 217, 255, 0.4);
+  border-radius: 4px;
+}
+
+.ai-analyst-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 217, 255, 0.6);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .ai-analyst-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  
+  .modal-header {
+    padding: 24px 20px;
+  }
+  
+  .modal-title {
+    font-size: 1.4rem;
+  }
+  
+  .analysis-results {
+    padding: 20px;
+  }
+  
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .metric-value {
+    font-size: 1.5rem;
+  }
+}

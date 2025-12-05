@@ -1,0 +1,16 @@
+# Render deployment configuration
+services:
+  - type: web
+    name: sentinel-ia-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: D_DO_PROJETO_GEE
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON_BASE64
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false

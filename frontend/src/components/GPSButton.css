@@ -1,0 +1,86 @@
+/* 🎨 GPS Location Button - Cyberpunk Style */
+
+.gps-button {
+  position: fixed;
+  top: 70px;
+  right: 16px;
+  z-index: 1000;
+  
+  width: 40px;
+  height: 40px;
+  
+  background: rgba(10, 10, 10, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 217, 255, 0.3);
+  border-radius: 50%;
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(0, 217, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.gps-button:hover {
+  border-color: rgba(0, 217, 255, 0.8);
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.6),
+    0 0 40px rgba(0, 217, 255, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px) scale(1.05);
+}
+
+.gps-button:active {
+  transform: translateY(0) scale(0.95);
+}
+
+.gps-button.loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.gps-icon {
+  font-size: 20px;
+  color: var(--harpia-cyan);
+  filter: drop-shadow(0 0 8px rgba(0, 217, 255, 0.6));
+  animation: gpsIconPulse 2s ease-in-out infinite;
+}
+
+.gps-button.loading .gps-icon {
+  animation: gpsSpin 1s linear infinite;
+}
+
+@keyframes gpsIconPulse {
+  0%, 100% { 
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px rgba(0, 217, 255, 0.6));
+  }
+  50% { 
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 16px rgba(0, 217, 255, 0.9));
+  }
+}
+
+@keyframes gpsSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .gps-button {
+    top: 70px;
+    right: 10px;
+    width: 44px;
+    height: 44px;
+  }
+  
+  .gps-icon {
+    font-size: 20px;
+  }
+}
