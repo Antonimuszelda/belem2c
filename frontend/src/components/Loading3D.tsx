@@ -1,5 +1,5 @@
 // frontend/src/components/Loading3D.tsx
-import { useRef, Suspense } from 'react';
+import { useRef, Suspense, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { 
   Sphere, 
@@ -12,6 +12,7 @@ import {
 } from '@react-three/drei';
 import { motion } from 'framer-motion';
 import * as THREE from 'three';
+import { audioService } from '../services/AudioService';
 import './Loading3D.css';
 
 interface Loading3DProps {
@@ -223,6 +224,18 @@ function LoadingText({ message }: { message: string }) {
 }
 
 export default function Loading3D({ message = "Carregando..." }: Loading3DProps) {
+  // 🔊 Tocar som de processamento durante loading
+  useEffect(() => {
+    audioService.playProcessing();
+    
+    // Som contínuo a cada 2 segundos
+    const interval = setInterval(() => {
+      audioService.playProcessing();
+    }, 2500);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="loading-3d-container">
       <Suspense fallback={

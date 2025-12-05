@@ -1,9 +1,10 @@
 // frontend/src/components/IntroSlides.tsx
-import { useState, useRef, Suspense } from 'react';
+import { useState, useRef, Suspense, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Sphere, MeshDistortMaterial, Float, PerspectiveCamera, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
+import { audioService } from '../services/AudioService';
 import './IntroSlides.css';
 
 interface IntroSlidesProps {
@@ -137,6 +138,22 @@ function Particles() {
 
 export default function IntroSlides({ onComplete }: IntroSlidesProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  // 🔊 Tocar som de startup quando os slides começam
+  useEffect(() => {
+    // Pequeno delay para garantir que o AudioContext esteja pronto
+    const timer = setTimeout(() => {
+      audioService.playStartup();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 🔊 Som de transição entre slides
+  useEffect(() => {
+    if (currentSlide > 0) {
+      audioService.playToggle();
+    }
+  }, [currentSlide]);
 
   const slides = [
     {

@@ -5,14 +5,31 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import "./App.css";
+import "./components/FloatingActions.css";
 import ChatPanel from "./components/ChatPanel";
 import Loading3D from "./components/Loading3D";
 import IntroSlides from "./components/IntroSlides";
 import HyperspaceTransition from "./components/HyperspaceTransition";
-import BeeTutorial from "./components/BeeTutorial";
+import LiveWeatherWidget from "./components/LiveWeatherWidget";
+import GPSButton from "./components/GPSButton";
+import LayerControlSidebar from "./components/LayerControlSidebar";
+import type { LayerConfig } from "./components/LayerControlSidebar";
+import AIAnalystModal from "./components/AIAnalystModal";
+import ComparisonSlider from "./components/ComparisonSlider";
+import TimeSeriesChart from "./components/TimeSeriesChart";
+import type { TimeSeriesData } from "./components/TimeSeriesChart";
+import TimelapsePlayer from "./components/TimelapsePlayer";
+import WindMap from "./components/WindMap";
+import { audioService } from "./services/AudioService";
+import { CacheService } from "./services/CacheService";
+import { AnalyticsService } from "./services/AnalyticsService";
+import { NotificationService } from "./services/NotificationService";
+import { PDFExportService } from "./services/PDFExportService";
+import { VulnerabilityCalculator } from "./services/VulnerabilityCalculator";
+import type { VulnerabilityFactors } from "./services/VulnerabilityCalculator";
 
 // Mapbox Token
-mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmV3b2J4IiwiYSI6ImNtMWh2MXZ5eDBqNnQyeG9za2R1N2lwc2YifQ.7yCrlwa4nNFKpg2TcQoFQg';
+mapboxgl.accessToken = 'pk.eyJ1IjoiYXN0cm9tYXBzIiwiYSI6ImNtaWFhdmFqZDB3bjMybG9hcnJ3aXVxZ2sifQ.75cnJYD49-JkLGIOLMSjwg';
 
 // Error Boundary simples
 class ErrorBoundary extends Component<
@@ -57,9 +74,8 @@ class ErrorBoundary extends Component<
 
 // Tipos
 type Coordinate = { lat: number; lng: number };
-type LayerType = "SENTINEL2_RGB" | "LANDSAT_RGB" | "SENTINEL1_VV" | "NDVI" | "NDWI" | "LST" | "UHI" | "UTFVI" | "DEM";
+type LayerType = "SENTINEL2_RGB" | "SENTINEL2_FALSE_COLOR" | "LANDSAT_RGB" | "SENTINEL1_VV" | "NDVI" | "NDWI" | "LST" | "UHI" | "UTFVI" | "DEM";
 type ActiveLayers = Partial<Record<LayerType, string>>;
-type ImageItem = { date: string; cloud_cover: number; satellite: string };
 
 const API_BASE = (import.meta as any).env.VITE_API_URL || "http://127.0.0.1:8000";
 
@@ -106,20 +122,22 @@ export default function App() {
   }, []);
   
   // Navigation state
-  const [appState, setAppState] = useState<'loading1' | 'slides' | 'hyperspace' | 'app' | 'tutorial'>('loading1');
-  const [showTutorial, setShowTutorial] = useState(false);
+  const [appState, setAppState] = useState<'loading1' | 'slides' | 'hyperspace' | 'app'>('loading1');
   
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const draw = useRef<MapboxDraw | null>(null);
   
   const [polygon, setPolygon] = useState<Coordinate[]>([]);
-  const [startDate, setStartDate] = useState(daysAgoStr(365));
-  const [endDate, setEndDate] = useState(todayStr());
-  const [cloud, setCloud] = useState(30);
+  const [polygonLocked, setPolygonLocked] = useState(false); // Bloquear polígono após finalizar
+  const [startDate] = useState(daysAgoStr(365));
+  const [endDate] = useState(todayStr());
+  const [cloud] = useState(5);
   const [activeLayers, setActiveLayers] = useState<ActiveLayers>({});
-  const [layerOpacity, setLayerOpacity] = useState<Record<LayerType, number>>({
+  const [layerOpacity, setLayerOpacity] = useState<Record<string, number>>({
     SENTINEL2_RGB: 1.0,
+    SENTINEL2_FALSE_COLOR: 1.0,
+    URBANIZATION: 1.0,
     LANDSAT_RGB: 1.0,
     SENTINEL1_VV: 0.8,
     NDVI: 0.7,
@@ -128,18 +146,53 @@ export default function App() {
     UHI: 0.8,
     UTFVI: 0.8,
     DEM: 0.6,
+    favelas: 0.7,
   });
   const [geojsonLayerData, setGeojsonLayerData] = useState<any>(null);
-  const [showImageListModal, setShowImageListModal] = useState(false);
-  const [imageList, setImageList] = useState<ImageItem[]>([]);
-  const [selectedLayerType, setSelectedLayerType] = useState<LayerType | null>(null);
-  const [activeTab, setActiveTab] = useState<'lista' | 'mosaicos'>('lista');
-  const [mosaics, setMosaics] = useState<Array<{dates: string[], startDate: string, endDate: string}>>([]);
   const [chatOpen, setChatOpen] = useState(false);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [is3DMode, setIs3DMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(deviceType === 'mobile');
   const [drawMode, setDrawMode] = useState(false);
+  
+  // Novos estados para interface futurística
+  const [mapCenter, setMapCenter] = useState({ lat: 0, lon: 0 }); // Começa neutro, será atualizado por geolocalização
+  const [showAIAnalyst, setShowAIAnalyst] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+  const [showTimeSeries, setShowTimeSeries] = useState(false);
+  const [showTimeSeriesConfig, setShowTimeSeriesConfig] = useState(false);
+  const [timeSeriesPeriod, setTimeSeriesPeriod] = useState<'30d' | '90d' | '1y'>('30d');
+  const [timeSeriesDataType, setTimeSeriesDataType] = useState<'all' | 'temperature' | 'vegetation' | 'water'>('all');
+  const [showTimelapse, setShowTimelapse] = useState(false);
+  const [showWindMap, setShowWindMap] = useState(false);
+  const [timelapseFrames, _setTimelapseFrames] = useState<Array<{date: string; imageUrl: string; thumbnail?: string}>>([]);
+  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData[]>([]);
+  const [vulnerabilityData, setVulnerabilityData] = useState<VulnerabilityFactors | null>(null);
+  const [layerConfigs, setLayerConfigs] = useState<LayerConfig[]>([
+    // SOCIOECONÔMICO
+    { id: 'favelas', name: 'Comunidades Vulneráveis', icon: '👥', description: 'Fonte: IBGE (GeoJSON)', enabled: false, category: 'socioeconomico' },
+
+    // URBANO
+    { id: 'URBANIZATION', name: 'Urbanização', icon: '🏙️', description: 'Sentinel-2 False Color (Planetary Computer)', enabled: false, category: 'urbano' },
+
+    // AMBIENTAL + CLIMÁTICO (unificado)
+    { id: 'SENTINEL1_VV', name: 'Radar de Superfície (SAR)', icon: '📡', description: 'Radar Sentinel-1 (atravessa nuvens)', enabled: false, category: 'ambiental' },
+    { id: 'NDVI', name: 'Saúde da Vegetação', icon: '🌿', description: 'Índice NDVI atualizado', enabled: false, category: 'ambiental' },
+    { id: 'LST', name: 'Temperatura de Superfície', icon: '🔥', description: 'Landsat 8/9 térmico (30m)', enabled: false, category: 'ambiental' },
+    { id: 'UHI', name: 'Ilha de Calor Urbana', icon: '🏙️', description: 'Urban Heat Island normalizada', enabled: false, category: 'ambiental' },
+    { id: 'UTFVI', name: 'Variação Térmica Urbana', icon: '🌡️', description: 'Urban Thermal Field Variance Index', enabled: false, category: 'ambiental' },
+    { id: 'NDWI', name: 'Água & Alagamento', icon: '💧', description: 'Sensoriamento de água livre', enabled: false, category: 'ambiental' },
+
+    // ELEVAÇÃO
+    { id: 'DEM', name: 'Topografia (DEM)', icon: '⛰️', description: 'Modelo SRTM 30m', enabled: false, category: 'elevacao' },
+  ]);
+
+  const GEOJSON_LAYERS: Record<string, { filename: string; cacheTtlMinutes?: number }> = {
+    favelas: {
+      filename: 'qg_2022_670_fcu_agreg.json',
+      cacheTtlMinutes: 120,
+    },
+  };
   
   // Atualizar estado do sidebar quando deviceType mudar
   useEffect(() => {
@@ -178,6 +231,10 @@ export default function App() {
   // Navigation flow
   useEffect(() => {
     if (appState === 'loading1') {
+      // Wake up backend and play startup sound
+      fetch(`${API_BASE}/health`).catch(() => {});
+      audioService.playStartup();
+      
       const timer = setTimeout(() => setAppState('slides'), 3000);
       return () => clearTimeout(timer);
     } else if (appState === 'hyperspace') {
@@ -188,11 +245,23 @@ export default function App() {
 
   const handleSlidesComplete = () => {
     setAppState('hyperspace');
-    setTimeout(() => {
-      setShowTutorial(true);
-      setAppState('app');
-    }, 3000);
   };
+
+  // Initialize services on app load
+  useEffect(() => {
+    if (appState === 'app') {
+      // Request notification permissions
+      NotificationService.requestPermission();
+      
+      // Track page view
+      AnalyticsService.trackPageView('main-app');
+      
+      // Track device type
+      AnalyticsService.trackEvent('device', 'detected', deviceType);
+      
+      console.log('✅ Services initialized: Cache, Analytics, Notifications');
+    }
+  }, [appState, deviceType]);
 
   // Sidebar começa expandida em mobile para ser visível
 
@@ -204,9 +273,9 @@ export default function App() {
     
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-47.93, -15.78],
-      zoom: deviceType === 'mobile' ? 3 : 4,
+      style: 'mapbox://styles/astromaps/cmikidkhw001u01sd9dvo1g2d',
+      center: [0, 0], // Começa centrado no mundo
+      zoom: 1.5, // Zoom bem distante para ver a Terra
       pitch: 0,
       bearing: 0,
       antialias: deviceType !== 'mobile',
@@ -220,6 +289,49 @@ export default function App() {
       dragPan: true,
       fadeDuration: 0,
       crossSourceCollisions: false
+    });
+    
+    // Animação de zoom do mundo até Belém quando o mapa carrega
+    map.current.on('load', () => {
+      audioService.playProcessing();
+      
+      // Espera 500ms e depois tenta usar geolocalização
+      setTimeout(() => {
+        // Tentar obter localização do usuário
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              // Sucesso: voar para localização do usuário
+              const userLat = position.coords.latitude;
+              const userLon = position.coords.longitude;
+              
+              map.current?.flyTo({
+                center: [userLon, userLat],
+                zoom: deviceType === 'mobile' ? 10 : 11,
+                pitch: deviceType === 'mobile' ? 0 : 45,
+                bearing: 0,
+                duration: 4000,
+                essential: true,
+                curve: 1.5
+              });
+              
+              setTimeout(() => {
+                audioService.playSuccess();
+                setMapCenter({ lat: userLat, lon: userLon });
+              }, 4000);
+            },
+            (error) => {
+              // Erro ou negado: ficar no zoom global (mundo inteiro)
+              console.log('Geolocalização negada ou não disponível:', error);
+              audioService.playSuccess();
+              // Manter zoom global sem voar para nenhum lugar específico
+            }
+          );
+        } else {
+          // Navegador não suporta: ficar no zoom global
+          audioService.playSuccess();
+        }
+      }, 500);
     });
     
     // Garantir que todas as interações estão habilitadas
@@ -348,23 +460,32 @@ export default function App() {
       updateTimeout = window.setTimeout(() => updatePolygon(), 100);
     };
     
-    // Ao criar polígono, voltar para modo seleção
+    // Ao criar polígono, voltar para modo seleção e bloquear
     map.current.on('draw.create', () => {
       updatePolygon();
-      // Sair do modo desenho automaticamente
+      // Sair do modo desenho automaticamente e bloquear polígono
       setTimeout(() => {
         if (draw.current && map.current) {
           const canvas = map.current.getCanvasContainer();
           draw.current.changeMode('simple_select');
+          // Desabilitar edição do polígono
+          draw.current.changeMode('static');
           map.current.dragPan.enable();
           map.current.touchZoomRotate.enable();
           canvas.classList.remove('mode-draw');
           setDrawMode(false);
+          setPolygonLocked(true); // Bloquear polígono
+          audioService.playSuccess();
         }
       }, 100);
     });
     
-    map.current.on('draw.update', debouncedUpdate);
+    // Impedir atualização se polígono estiver bloqueado
+    map.current.on('draw.update', () => {
+      if (!polygonLocked) {
+        debouncedUpdate();
+      }
+    });
     map.current.on('draw.delete', () => setPolygon([]));
 
     // Quando carregar, adicionar terreno 3D e prédios 3D (se não for mobile)
@@ -666,193 +787,349 @@ export default function App() {
     }
   }, [geojsonLayerData]);
 
-  // Funções de controle (mesmas do código original)
-  const generateMosaics = (images: ImageItem[]) => {
-    const mosaicList: Array<{dates: string[], startDate: string, endDate: string}> = [];
-    const sortedImages = [...images].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+
+  // Handler para GPS location
+  const handleGPSLocation = (lat: number, lon: number) => {
+    console.log('GPS Location received:', lat, lon);
+    if (map.current) {
+      map.current.flyTo({
+        center: [lon, lat],
+        zoom: 14,
+        duration: 2000,
+        essential: true
+      });
+      setMapCenter({ lat, lon });
+      audioService.playSuccess();
+      console.log('Map flyTo triggered');
+    } else {
+      console.warn('Map not initialized');
+    }
+  };
+
+  // Helper: Mapear IDs de camadas do frontend para o backend
+  const mapLayerIdToBackend = (layerId: string): string => {
+    const mapping: Record<string, string> = {
+      'cobertura_vegetal': 'NDVI',
+      'infraestrutura': 'SENTINEL2_RGB',
+      'favelas': 'SENTINEL2_RGB',
+      'UTFVI': 'LST', // Ilha de calor usa LST
+      'NDVI': 'NDVI',
+      'NDWI': 'NDWI',
+      'DEM': 'DEM',
+      'URBANIZATION': 'SENTINEL2_FALSE_COLOR', // Urbanização usa false color via GEE
+      'SENTINEL2_FALSE_COLOR': 'SENTINEL2_FALSE_COLOR'
+    };
+    return mapping[layerId] || layerId.toUpperCase();
+  };
+
+  // Handler para toggle de camadas
+  const handleLayerToggle = async (layerId: string) => {
+    const layer = layerConfigs.find(l => l.id === layerId);
+    if (!layer) return;
+
+    const isCurrentlyEnabled = layer.enabled;
     
-    let currentMosaic: string[] = [];
-    let mosaicStartDate = '';
-    
-    for (let i = 0; i < sortedImages.length; i++) {
-      const currentDate = new Date(sortedImages[i].date);
-      
-      if (currentMosaic.length === 0) {
-        currentMosaic = [sortedImages[i].date];
-        mosaicStartDate = sortedImages[i].date;
+    // Atualizar estado visual primeiro
+    setLayerConfigs(prev => 
+      prev.map(l => 
+        l.id === layerId 
+          ? { ...l, enabled: !l.enabled }
+          : l
+      )
+    );
+    audioService.playToggle();
+
+    // Track analytics
+    AnalyticsService.trackEvent('layer', isCurrentlyEnabled ? 'disable' : 'enable', layerId);
+
+    if (isCurrentlyEnabled) {
+      // Desativar camada - remover do mapa
+      if (GEOJSON_LAYERS[layerId]) {
+        // GeoJSON special handling
+        if (map.current?.getLayer('geojson-layer')) map.current.removeLayer('geojson-layer');
+        if (map.current?.getLayer('geojson-layer-outline')) map.current.removeLayer('geojson-layer-outline');
+        if (map.current?.getSource('geojson-source')) map.current.removeSource('geojson-source');
+        setGeojsonLayerData(null);
       } else {
-        const lastDate = new Date(currentMosaic[currentMosaic.length - 1]);
-        const diffMonths = (currentDate.getFullYear() - lastDate.getFullYear()) * 12 + 
-                          (currentDate.getMonth() - lastDate.getMonth());
-        
-        if (diffMonths <= 2 && currentMosaic.length < 15) {
-          currentMosaic.push(sortedImages[i].date);
-        } else {
-          if (currentMosaic.length >= 10) {
-            mosaicList.push({
-              dates: [...currentMosaic],
-              startDate: mosaicStartDate,
-              endDate: currentMosaic[currentMosaic.length - 1]
-            });
-          }
-          currentMosaic = [sortedImages[i].date];
-          mosaicStartDate = sortedImages[i].date;
+        if (map.current?.getLayer(`layer-${layerId}`)) {
+          map.current.removeLayer(`layer-${layerId}`);
         }
+        if (map.current?.getSource(`source-${layerId}`)) {
+          map.current.removeSource(`source-${layerId}`);
+        }
+        setActiveLayers(prev => {
+          const newLayers = { ...prev };
+          delete newLayers[layerId as LayerType];
+          return newLayers;
+        });
+      }
+    } else {
+      // Ativar camada - carregar do GEE
+      if (polygon.length < 3) {
+        alert("Primeiro, desenhe um polígono para delimitar a área de análise.");
+        audioService.playError();
+        // Reverter estado
+        setLayerConfigs(prev => 
+          prev.map(l => 
+            l.id === layerId 
+              ? { ...l, enabled: false }
+              : l
+          )
+        );
+        return;
+      }
+
+      setLoading(prev => ({ ...prev, [layerId]: true }));
+      
+      // Check cache first
+      const cacheKey = `layer_${layerId}_${JSON.stringify(polygon)}_${startDate}_${endDate}`;
+      const cachedData = CacheService.get<{tileUrl: string}>(cacheKey);
+      
+      if (cachedData) {
+        console.log(`✅ Cache hit for ${layerId}`);
+        setActiveLayers(prev => ({ ...prev, [layerId as LayerType]: cachedData.tileUrl }));
+        setLoading(prev => ({ ...prev, [layerId]: false }));
+        audioService.playSuccess();
+        return;
+      }
+      
+      try {
+        const startTime = performance.now();
+        // Special-case: GeoJSON layers (e.g., favelas)
+        if (GEOJSON_LAYERS[layerId]) {
+          const filename = GEOJSON_LAYERS[layerId].filename;
+          const payload = { filename, polygon };
+          const res = await fetch(`${API_BASE}/api/geojson/render_layer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!res.ok) {
+            throw new Error(`GeoJSON fetch failed: [${res.status}] ${await res.text()}`);
+          }
+
+          const gj = await res.json();
+
+          const count = gj.features?.length || 0;
+          if (count === 0) {
+            alert('Nenhuma feição encontrada no GeoJSON para a área selecionada.');
+            // revert state
+            setLayerConfigs(prev => prev.map(l => l.id === layerId ? { ...l, enabled: false } : l));
+            audioService.playError();
+            return;
+          }
+
+          // Cache combined geojson as simple object
+          CacheService.set(cacheKey, { geojson: gj }, GEOJSON_LAYERS[layerId].cacheTtlMinutes || 60);
+          setGeojsonLayerData(gj);
+          audioService.playSuccess();
+          AnalyticsService.trackTiming('geojson_load', layerId, performance.now() - startTime);
+          alert(`✅ ${count} comunidades encontradas na área!`);
+          return;
+        }
+
+        // Todas as camadas térmicas (LST, UHI, UTFVI) usam Landsat 8/9 via Google Earth Engine
+        // Cobertura nacional com dados térmicos de alta resolução (30m)
+
+        const endpoint = layerId === 'DEM' ? '/api/get_dem' : '/api/get_tile';
+        const backendLayerType = mapLayerIdToBackend(layerId);
+        
+        const body = layerId === 'DEM' 
+          ? { polygon: polygon } 
+          : { 
+              polygon: polygon, 
+              start_date: startDate, 
+              end_date: endDate, 
+              layer_type: backendLayerType, 
+              cloud_percentage: cloud 
+            };
+        
+        const res = await fetch(`${API_BASE}${endpoint}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) throw new Error(`[${res.status}] ${await res.text()}`);
+        const data = await res.json();
+        const url = data.tileUrl || data.tile_url;
+
+        // Cache the result
+        CacheService.set(cacheKey, { tileUrl: url }, 60); // Cache for 60 minutes
+
+        setActiveLayers(prev => ({ ...prev, [layerId as LayerType]: url }));
+        audioService.playSuccess();
+
+        // Track timing
+        const duration = performance.now() - startTime;
+        AnalyticsService.trackTiming('layer_load', layerId, duration);
+        
+      } catch (e: any) {
+        alert(`Erro ao carregar camada ${layer.name}: ${e.message || e}`);
+        audioService.playError();
+        AnalyticsService.trackError(e, `layer_toggle: ${layerId}`);
+        // Reverter estado em caso de erro
+        setLayerConfigs(prev => 
+          prev.map(l => 
+            l.id === layerId 
+              ? { ...l, enabled: false }
+              : l
+          )
+        );
+      } finally {
+        setLoading(prev => ({ ...prev, [layerId]: false }));
       }
     }
-    
-    if (currentMosaic.length >= 10) {
-      mosaicList.push({
-        dates: [...currentMosaic],
-        startDate: mosaicStartDate,
-        endDate: currentMosaic[currentMosaic.length - 1]
-      });
-    }
-    
-    return mosaicList;
   };
 
-  const handleToggleLayer = async (layerType: LayerType) => {
-    if (activeLayers[layerType]) {
-      setActiveLayers(prev => {
-        const newLayers = { ...prev };
-        delete newLayers[layerType];
-        return newLayers;
-      });
-      return;
-    }
-
+  // Handler para abrir AI Analyst
+  const handleOpenAIAnalyst = () => {
     if (polygon.length < 3) {
-      alert("Primeiro, desenhe um polígono ou carregue uma área de interesse.");
+      alert("Primeiro, desenhe um polígono para delimitar a área de análise.");
+      audioService.playError();
+      return;
+    }
+    setShowAIAnalyst(true);
+    audioService.playPanelOpen();
+    AnalyticsService.trackEvent('ai_analyst', 'open', 'manual');
+  };
+
+  // Handler para exportar PDF
+  const handleExportPDF = async () => {
+    if (polygon.length < 3) {
+      alert("Primeiro, desenhe um polígono para realizar análise.");
       return;
     }
 
-    setLoading(prev => ({ ...prev, [layerType]: true }));
     try {
-      const body = { polygon, start_date: startDate, end_date: endDate, layer_type: layerType, cloud_percentage: cloud };
-      
-      const res = await fetch(`${API_BASE}/api/list_images`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      audioService.playProcessing();
+      NotificationService.notify('📄 Gerando relatório PDF...', { 
+        body: 'Isso pode levar alguns segundos',
+        icon: '/images/logo.png'
       });
 
-      if (!res.ok) throw new Error(`[${res.status}] ${await res.text()}`);
-      const data = await res.json();
+      // Buscar dados reais da última análise ou usar valores padrão
+      const cacheKey = `last_analysis_${JSON.stringify(polygon)}`;
+      const lastAnalysis = CacheService.get<any>(cacheKey);
       
-      if (data.images && data.images.length > 0) {
-        setImageList(data.images);
-        setSelectedLayerType(layerType);
-        const generatedMosaics = generateMosaics(data.images);
-        setMosaics(generatedMosaics);
-        setShowImageListModal(true);
-      } else {
-        alert(`Nenhuma imagem encontrada para ${layerType} no período selecionado.`);
-      }
-    } catch (e: any) {
-      alert(`Erro ao buscar imagens para ${layerType}: ${e.message || e}`);
-    } finally {
-      setLoading(prev => ({ ...prev, [layerType]: false }));
+      const reportData = {
+        title: 'Análise Geoespacial - HARP-IA',
+        location: `${mapCenter.lat.toFixed(4)}, ${mapCenter.lon.toFixed(4)}`,
+        date: new Date().toLocaleDateString('pt-BR'),
+        avgTemperature: lastAnalysis?.avgTemperature || 25,
+        vegetationDensity: lastAnalysis?.vegetationDensity || 50,
+        floodRisk: lastAnalysis?.floodRisk || 'MÉDIO',
+        aiSummary: lastAnalysis?.aiSummary || 'Execute a análise de AI para obter um relatório completo com dados da área.',
+        recommendations: lastAnalysis?.recommendations || ['1. Execute a análise de AI para recomendações personalizadas', '2. Adicione camadas para visualizar dados geoespaciais'],
+        vulnerability: vulnerabilityData ? VulnerabilityCalculator.calculate(vulnerabilityData) : undefined,
+        areaSize: lastAnalysis?.area_km2 || 0
+      };
+
+      await PDFExportService.downloadReport(reportData, `relatorio-harpia-${Date.now()}.pdf`);
+      
+      audioService.playSuccess();
+      NotificationService.alertSuccess('Relatório PDF gerado e baixado com sucesso!');
+      AnalyticsService.trackEvent('export', 'pdf', 'success');
+      
+    } catch (error: any) {
+      audioService.playError();
+      NotificationService.alertCritical('Erro ao gerar PDF', error.message);
+      AnalyticsService.trackError(error, 'pdf_export');
     }
   };
 
-  const handleLoadSpecificImage = async (date: string) => {
-    if (!selectedLayerType) return;
-    
-    setLoading(prev => ({ ...prev, [selectedLayerType]: true }));
-    setShowImageListModal(false);
+  // Handler para abrir modal de configuração do time series
+  const handleOpenTimeSeries = () => {
+    if (polygon.length < 3) {
+      alert("Primeiro, desenhe um polígono para delimitar a área de análise.");
+      return;
+    }
+    audioService.playClick();
+    setShowTimeSeriesConfig(true);
+  };
+
+  // Handler para carregar os dados após configuração
+  const handleLoadTimeSeries = async () => {
+    setShowTimeSeriesConfig(false);
     
     try {
-      const endpoint = selectedLayerType === 'DEM' ? '/api/get_dem' : '/api/get_tile';
-      const body = selectedLayerType === 'DEM' 
-        ? { polygon } 
-        : { polygon, start_date: startDate, end_date: endDate, layer_type: selectedLayerType, cloud_percentage: cloud, specific_date: date };
+      audioService.playProcessing();
       
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const days = timeSeriesPeriod === '30d' ? 30 : timeSeriesPeriod === '90d' ? 90 : 365;
+      NotificationService.notify('📊 Carregando dados temporais...', { 
+        body: `Buscando histórico dos últimos ${days} dias`
       });
 
-      if (!res.ok) throw new Error(`[${res.status}] ${await res.text()}`);
-      const data = await res.json();
-      const url = data.tileUrl || data.tile_url;
+      // Buscar dados REAIS do backend
+      const polygonArray = polygon.map(coord => [coord.lng, coord.lat]);
       
-      setActiveLayers(prev => ({ ...prev, [selectedLayerType]: url }));
+      const res = await fetch(`${API_BASE}/api/time_series`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          polygon: polygonArray,
+          start_date: daysAgoStr(days),
+          end_date: todayStr()
+        })
+      });
 
-    } catch (e: any) {
-      alert(`Erro ao carregar imagem de ${date}: ${e.message || e}`);
-    } finally {
-      setLoading(prev => ({ ...prev, [selectedLayerType!]: false }));
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      
+      const data = await res.json();
+      setTimeSeriesData(data.timeseries || []);
+      setShowTimeSeries(true);
+      
+      audioService.playSuccess();
+      AnalyticsService.trackEvent('time_series', 'open', 'success');
+      
+    } catch (error: any) {
+      console.error('Erro ao carregar séries temporais:', error);
+      audioService.playError();
+      alert(`Erro ao carregar dados temporais: ${error.message}`);
+      AnalyticsService.trackError(error, 'time_series_load');
     }
   };
 
   const handleClear = () => {
+    audioService.playClick();
     setPolygon([]);
+    setPolygonLocked(false); // Desbloquear para novo desenho
     setActiveLayers({});
     setGeojsonLayerData(null);
     if (draw.current) {
       draw.current.deleteAll();
     }
+    // Não mexe no mapa - apenas limpa os dados
+  };
+
+  // Handler para mudança de opacidade
+  const handleOpacityChange = (layerId: string, opacity: number) => {
+    setLayerOpacity(prev => ({ ...prev, [layerId]: opacity }));
+    
+    // Atualizar opacidade no mapa
     if (map.current) {
-      map.current.flyTo({ center: [-47.93, -15.78], zoom: 4 });
+      const rasterId = `layer-${layerId}`;
+      if (map.current.getLayer(rasterId)) {
+        map.current.setPaintProperty(rasterId, 'raster-opacity', opacity);
+      }
+      // Para camada GeoJSON (favelas)
+      if (layerId === 'favelas') {
+        if (map.current.getLayer('geojson-layer')) {
+          map.current.setPaintProperty('geojson-layer', 'fill-opacity', opacity * 0.3);
+        }
+        if (map.current.getLayer('geojson-layer-outline')) {
+          map.current.setPaintProperty('geojson-layer-outline', 'line-opacity', opacity);
+        }
+      }
     }
   };
 
-  const handleLoadCommunities = async () => {
-    if (polygon.length < 3) {
-      alert("Primeiro, desenhe um polígono para delimitar a área.");
-      return;
-    }
-    
-    setLoading(prev => ({ ...prev, geojson: true }));
-    
-    try {
-      const fileNames = ['FCUs_BR.json', 'geopackages_n_setorizadas.json', 'qg_2022_670_fcu_agreg.json', 'setores_censitarios.json'];
-      const allFeatures: any[] = [];
-      
-      for (const fileName of fileNames) {
-        try {
-          const payload = { filename: fileName, polygon: polygon };
-          const url = `${API_BASE}/api/geojson/render_layer`;
-          
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify(payload),
-            mode: 'cors'
-          });
-          
-          if (res.ok) {
-            const geojsonData = await res.json();
-            if (geojsonData.features && geojsonData.features.length > 0) {
-              allFeatures.push(...geojsonData.features);
-            }
-          }
-        } catch (fileError: any) {
-          console.error(`Erro ao processar ${fileName}:`, fileError);
-        }
-      }
-      
-      if (allFeatures.length > 0) {
-        const combinedGeoJSON = {
-          type: 'FeatureCollection',
-          features: allFeatures
-        };
-        setGeojsonLayerData(combinedGeoJSON);
-        alert(`✅ ${allFeatures.length} favelas/comunidades encontradas na área delimitada.`);
-      } else {
-        alert("Nenhuma favela/comunidade encontrada na área delimitada.");
-      }
-      
-    } catch (e: any) {
-      alert(`Erro ao carregar favelas: ${e.message || e}`);
-    } finally {
-      setLoading(prev => ({ ...prev, geojson: false }));
-    }
+  // Handler para minimizar/expandir sidebar
+  const handleSidebarMinimize = () => {
+    setSidebarCollapsed(prev => !prev);
+    audioService.playToggle();
   };
 
   const isAnythingLoading = Object.values(loading).some(v => v);
@@ -884,297 +1161,251 @@ export default function App() {
 
   // Main app
   return (
-    <div className={`app ${isTouch ? 'touch-device' : 'desktop-device'} device-${deviceType}`}>
-      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
-        
-        {/* Botão toggle - aparece em mobile e tablet */}
-        {(deviceType === 'mobile' || deviceType === 'tablet') && (
+    <ErrorBoundary>
+      <div className={`app ${isTouch ? 'touch-device' : 'desktop-device'} device-${deviceType}`}>
+        {/* Layer Control Sidebar - Futuristic Accordion */}
+        <LayerControlSidebar 
+          layers={layerConfigs}
+          onLayerToggle={handleLayerToggle}
+          onOpacityChange={handleOpacityChange}
+          onMinimize={handleSidebarMinimize}
+          collapsed={sidebarCollapsed}
+          layerOpacities={layerOpacity}
+        />
+
+        {/* Top-Right Utilities */}
+        <LiveWeatherWidget lat={mapCenter.lat} lon={mapCenter.lon} />
+        <GPSButton onLocationFound={handleGPSLocation} />
+
+        {/* Main Map Content */}
+        <main className="main-content">
+          <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+        </main>
+
+        {/* Floating Action Buttons */}
+        <div className="floating-actions">
           <button 
-            className="sidebar-toggle-mobile" 
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            style={{ flexShrink: 0 }}
+            className="fab-button ai-analyst-btn"
+            onClick={handleOpenAIAnalyst}
+            onMouseEnter={() => audioService.playHover()}
+            disabled={polygon.length < 3}
+            title="AI Analyst Report"
           >
-            <i className={`icofont-${sidebarCollapsed ? 'rounded-down' : 'rounded-up'}`}></i>
-            {sidebarCollapsed ? ' Expandir Painel' : ' Minimizar Painel'}
+            <span className="fab-icon">🤖</span>
+            <span className="fab-label">AI ANALYST</span>
           </button>
-        )}
-        
-        <header className="sidebar-header">
-          <h1>HARP-IA</h1>
-          <p>Análise Geoespacial com IA</p>
-        </header>
 
-        <div className="sidebar-content">
-          <div className="control-group date-controls">
-            <h3><i className="icofont-ui-calendar"></i> Período</h3>
-            <div className="group">
-              <label>Início</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={isAnythingLoading} />
-            </div>
-            <div className="group">
-              <label>Fim</label>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={isAnythingLoading} />
-            </div>
-          </div>
+          <button 
+            className="fab-button pdf-export-btn"
+            onClick={handleExportPDF}
+            onMouseEnter={() => audioService.playHover()}
+            disabled={polygon.length < 3}
+            title="Exportar Relatório PDF"
+          >
+            <span className="fab-icon">📄</span>
+            <span className="fab-label">PDF</span>
+          </button>
 
-          <div className="control-group cloud-filter">
-            <h3><i className="icofont-cloud"></i> Filtro</h3>
-            <div className="group">
-              <label>Cobertura de Nuvem ({cloud}%)</label>
-              <input type="range" min={0} max={100} value={cloud} onChange={(e) => setCloud(Number(e.target.value))} disabled={isAnythingLoading} />
-            </div>
-          </div>
+          <button 
+            className="fab-button time-series-btn"
+            onClick={handleOpenTimeSeries}
+            onMouseEnter={() => audioService.playHover()}
+            title="Gráficos Temporais"
+          >
+            <span className="fab-icon">📈</span>
+            <span className="fab-label">GRÁFICOS</span>
+          </button>
 
-          <div className="control-group">
-            <h3><i className="icofont-layers"></i> Camadas</h3>
-            <div className="layers-grid">
-              {(Object.keys(layerDefs) as LayerType[]).map(key => (
-                <div key={key} className="layer-item">
-                  <button 
-                    className={`layer-btn ${activeLayers[key] ? 'active' : ''}`} 
-                    onClick={() => handleToggleLayer(key)} 
-                    disabled={!!loading[key]}
-                    data-layer={key}
-                  >
-                    {loading[key] ? <div className="spinner" /> : <i className={layerDefs[key].icon} />}
-                    <span>{layerDefs[key].name}</span>
-                  </button>
-                  {activeLayers[key] && (
-                    <div className="opacity-control">
-                      <label>Opacidade: {Math.round(layerOpacity[key] * 100)}%</label>
-                      <input 
-                        type="range" 
-                        min={0} 
-                        max={100} 
-                        value={layerOpacity[key] * 100} 
-                        onChange={(e) => setLayerOpacity(prev => ({ ...prev, [key]: Number(e.target.value) / 100 }))}
-                        className="opacity-slider"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          <button 
+            className="fab-button wind-btn"
+            onClick={() => { setShowWindMap(true); audioService.playClick(); }}
+            onMouseEnter={() => audioService.playHover()}
+            title="Mapa de Ventos"
+          >
+            <span className="fab-icon">💨</span>
+            <span className="fab-label">VENTOS</span>
+          </button>
 
-          <div className="control-group">
-            <h3><i className="icofont-map-pins"></i> Dados Geográficos</h3>
-            <button 
-              className="btn-communities" 
-              onClick={handleLoadCommunities}
-              disabled={polygon.length < 3 || !!loading.geojson}
-              style={{ width: '100%' }}
-            >
-              <i className="icofont-home"></i> {loading.geojson ? 'Carregando...' : 'Carregar Favelas e Comunidades'}
-            </button>
-          </div>
+          <button 
+            className="fab-button draw-btn"
+            onClick={toggleDrawMode}
+            onMouseEnter={() => audioService.playHover()}
+            title={drawMode ? 'Finalizar Desenho' : 'Desenhar Área'}
+          >
+            <span className="fab-icon">{drawMode ? '✓' : '✏️'}</span>
+            <span className="fab-label">{drawMode ? 'FINALIZAR' : 'DESENHAR'}</span>
+          </button>
 
+          <button 
+            className="fab-button mode-3d-btn"
+            onClick={toggle3DMode}
+            onMouseEnter={() => audioService.playHover()}
+            title={is3DMode ? 'Modo 2D' : 'Modo 3D'}
+          >
+            <span className="fab-icon">{is3DMode ? '🗺️' : '🏔️'}</span>
+            <span className="fab-label">{is3DMode ? '2D' : '3D'}</span>
+          </button>
+
+          <button 
+            className="fab-button chat-btn"
+            onClick={() => { setChatOpen(true); audioService.playPanelOpen(); }}
+            onMouseEnter={() => audioService.playHover()}
+            disabled={polygon.length < 3}
+            title="Chat com IA"
+          >
+            <span className="fab-icon">💬</span>
+            <span className="fab-label">CHAT IA</span>
+          </button>
+
+          <button 
+            className="fab-button clear-btn"
+            onClick={handleClear}
+            onMouseEnter={() => audioService.playHover()}
+            disabled={isAnythingLoading}
+            title="Limpar Tudo"
+          >
+            <span className="fab-icon">🗑️</span>
+            <span className="fab-label">LIMPAR</span>
+          </button>
         </div>
 
-        <footer className="sidebar-footer">
-          <button 
-            className="btn-draw" 
-            onClick={toggleDrawMode}
-            style={{
-              width: '100%',
-              marginBottom: '10px',
-              background: drawMode ? 'linear-gradient(135deg, #00e5ff 0%, #00b8d4 100%)' : 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
-              padding: '12px',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              border: 'none',
-              borderRadius: '8px',
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            <i className={drawMode ? 'icofont-check-circled' : 'icofont-ui-edit'}></i> 
-            {drawMode ? 'Finalizar Desenho' : 'Desenhar Polígono'}
-          </button>
-          <button 
-            className="btn-3d" 
-            onClick={toggle3DMode}
-            style={{
-              width: '100%',
-              marginBottom: '10px',
-              background: is3DMode ? 'linear-gradient(135deg, #00e5ff 0%, #00b8d4 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-            }}
-          >
-            <i className="icofont-cube"></i> {is3DMode ? 'Modo 2D' : 'Modo 3D'}
-          </button>
-          <button className="btn-ai chat-toggle" onClick={() => setChatOpen(true)} disabled={polygon.length < 3}>
-            <i className="icofont-robot"></i> Chat com IA
-          </button>
-          <button className="btn-clear" onClick={handleClear} disabled={isAnythingLoading}>
-            Limpar Tudo
-          </button>
-        </footer>
-      </aside>
+      {/* AI Analyst Modal */}
+      <AIAnalystModal 
+        isOpen={showAIAnalyst}
+        onClose={() => { setShowAIAnalyst(false); audioService.playPanelClose(); }}
+        polygon={polygon}
+        onAnalysisComplete={(result) => {
+          console.log('Analysis completed:', result);
+          // Salvar dados de vulnerabilidade
+          if (result) {
+            const vulnFactors = VulnerabilityCalculator.fromAnalysisData(result);
+            setVulnerabilityData(vulnFactors);
+          }
+          // Notificar conclusão
+          NotificationService.analysisComplete(polygon.length);
+          AnalyticsService.trackAIAnalysis(polygon.length, 0, true);
+        }}
+      />
 
-      <main className="main-content">
-        <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
-      </main>
+      {/* Comparison Slider Modal */}
+      {showComparison && (
+        <ComparisonSlider
+          beforeDate={daysAgoStr(365)}
+          afterDate={todayStr()}
+          beforeLayerUrl={activeLayers.NDVI || ''}
+          afterLayerUrl={activeLayers.NDVI || ''}
+          layerType="NDVI"
+          onClose={() => setShowComparison(false)}
+        />
+      )}
 
-      {showImageListModal && selectedLayerType && (
-        <div className="ai-modal-overlay" onClick={() => { setShowImageListModal(false); setActiveTab('lista'); }}>
-          <div className="ai-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: isTouch ? '90%' : '700px' }}>
-            <div className="ai-modal-header">
-              <h2><i className="icofont-satellite"></i> Imagens - {layerDefs[selectedLayerType].name}</h2>
-              <button className="close-btn" onClick={() => { setShowImageListModal(false); setActiveTab('lista'); }}>✕</button>
+      {/* Time Series Config Modal */}
+      {showTimeSeriesConfig && (
+        <div className="timeseries-modal-overlay" onClick={() => setShowTimeSeriesConfig(false)}>
+          <div className="timeseries-config-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="timeseries-header">
+              <h2>⚙️ Configurar Análise Temporal</h2>
+              <button className="close-btn" onClick={() => setShowTimeSeriesConfig(false)}>✕</button>
             </div>
             
-            <div style={{ display: 'flex', borderBottom: '2px solid var(--neon-cyan)', marginBottom: '15px', gap: '10px' }}>
-              <button onClick={() => setActiveTab('lista')} style={{
-                flex: 1, padding: '12px', background: activeTab === 'lista' ? 'linear-gradient(135deg, #0f3460 0%, #16213e 100%)' : 'transparent',
-                border: 'none', borderBottom: activeTab === 'lista' ? '3px solid var(--neon-cyan)' : '3px solid transparent',
-                color: activeTab === 'lista' ? 'var(--neon-cyan)' : '#aaa', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold'
-              }}>
-                📋 Lista ({imageList.length})
-              </button>
-              <button onClick={() => setActiveTab('mosaicos')} style={{
-                flex: 1, padding: '12px', background: activeTab === 'mosaicos' ? 'linear-gradient(135deg, #0f3460 0%, #16213e 100%)' : 'transparent',
-                border: 'none', borderBottom: activeTab === 'mosaicos' ? '3px solid var(--neon-green)' : '3px solid transparent',
-                color: activeTab === 'mosaicos' ? 'var(--neon-green)' : '#aaa', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold'
-              }}>
-                🗂️ Mosaicos ({mosaics.length})
-              </button>
+            <div className="config-section">
+              <h3>📅 Período de Análise</h3>
+              <div className="config-options">
+                <button 
+                  className={`config-btn ${timeSeriesPeriod === '30d' ? 'active' : ''}`}
+                  onClick={() => setTimeSeriesPeriod('30d')}
+                >
+                  📊 30 dias
+                </button>
+                <button 
+                  className={`config-btn ${timeSeriesPeriod === '90d' ? 'active' : ''}`}
+                  onClick={() => setTimeSeriesPeriod('90d')}
+                >
+                  📈 90 dias
+                </button>
+                <button 
+                  className={`config-btn ${timeSeriesPeriod === '1y' ? 'active' : ''}`}
+                  onClick={() => setTimeSeriesPeriod('1y')}
+                >
+                  📉 1 ano
+                </button>
+              </div>
             </div>
 
-            <div className="ai-content" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-              {activeTab === 'lista' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {imageList.map((img, idx) => (
-                    <button key={idx} onClick={() => handleLoadSpecificImage(img.date)} style={{
-                      padding: '12px', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                      border: '1px solid var(--neon-cyan)', borderRadius: '8px', color: '#fff',
-                      cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                    }}>
-                      <div>
-                        <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>📅 {img.date}</div>
-                        <div style={{ fontSize: '12px', color: '#aaa' }}>{img.satellite} • Nuvens: {img.cloud_cover}%</div>
-                      </div>
-                      <i className="icofont-download" style={{ fontSize: '20px', color: 'var(--neon-green)' }}></i>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                mosaics.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {mosaics.map((mosaic, idx) => (
-                      <div key={idx} style={{
-                        padding: '15px', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                        border: '2px solid var(--neon-green)', borderRadius: '12px', color: '#fff'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--neon-green)', marginBottom: '5px' }}>
-                              🗂️ Mosaico #{idx + 1} ({mosaic.dates.length} imagens)
-                            </h3>
-                            <div style={{ fontSize: '14px', color: '#aaa' }}>📅 {mosaic.startDate} até {mosaic.endDate}</div>
-                          </div>
-                          <button
-                            onClick={async () => {
-                              if (!selectedLayerType) return;
-                              setLoading(prev => ({ ...prev, [selectedLayerType]: true }));
-                              try {
-                                // Carregar mosaico usando o endpoint de mosaico
-                                const res = await fetch(`${API_BASE}/api/get_tile/${selectedLayerType}`, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    polygon,
-                                    start_date: mosaic.startDate,
-                                    end_date: mosaic.endDate,
-                                    is_mosaic: true
-                                  })
-                                });
-                                
-                                if (!res.ok) {
-                                  throw new Error(`Erro ao carregar mosaico: ${res.status}`);
-                                }
-                                
-                                const data = await res.json();
-                                if (data.tile_url) {
-                                  setActiveLayers(prev => ({ ...prev, [selectedLayerType]: data.tile_url }));
-                                  setShowImageListModal(false);
-                                  alert(`✅ Mosaico #${idx + 1} carregado com sucesso!`);
-                                } else {
-                                  throw new Error('URL do mosaico não retornada');
-                                }
-                              } catch (error: any) {
-                                alert(`Erro ao carregar mosaico: ${error.message}`);
-                              } finally {
-                                setLoading(prev => ({ ...prev, [selectedLayerType]: false }));
-                              }
-                            }}
-                            style={{
-                              padding: '10px 20px',
-                              background: 'linear-gradient(135deg, #00e5ff 0%, #00b8d4 100%)',
-                              border: 'none',
-                              borderRadius: '8px',
-                              color: '#000',
-                              fontWeight: 'bold',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              transition: 'transform 0.2s ease',
-                              boxShadow: '0 4px 15px rgba(0, 229, 255, 0.4)'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                          >
-                            <i className="icofont-download" style={{ fontSize: '18px' }}></i>
-                            Carregar
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#aaa' }}>
-                    <p>Nenhum mosaico gerado. Necessário pelo menos 10 imagens.</p>
-                  </div>
-                )
-              )}
+            <div className="config-section">
+              <h3>📊 Tipo de Dados</h3>
+              <div className="config-options">
+                <button 
+                  className={`config-btn ${timeSeriesDataType === 'all' ? 'active' : ''}`}
+                  onClick={() => setTimeSeriesDataType('all')}
+                >
+                  🌐 Todos os dados
+                </button>
+                <button 
+                  className={`config-btn ${timeSeriesDataType === 'temperature' ? 'active' : ''}`}
+                  onClick={() => setTimeSeriesDataType('temperature')}
+                >
+                  🌡️ Temperatura
+                </button>
+                <button 
+                  className={`config-btn ${timeSeriesDataType === 'vegetation' ? 'active' : ''}`}
+                  onClick={() => setTimeSeriesDataType('vegetation')}
+                >
+                  🌳 Vegetação
+                </button>
+                <button 
+                  className={`config-btn ${timeSeriesDataType === 'water' ? 'active' : ''}`}
+                  onClick={() => setTimeSeriesDataType('water')}
+                >
+                  💧 Água
+                </button>
+              </div>
             </div>
+
+            <button className="load-btn" onClick={handleLoadTimeSeries}>
+              🚀 Carregar Dados
+            </button>
           </div>
         </div>
       )}
 
+      {/* Time Series Chart Modal */}
+      {showTimeSeries && timeSeriesData.length > 0 && (
+        <TimeSeriesChart
+          data={timeSeriesData}
+          title="Análise Temporal da Área"
+          onClose={() => setShowTimeSeries(false)}
+          initialChart={timeSeriesDataType === 'all' ? 'temperature' : timeSeriesDataType}
+        />
+      )}
+
+      {/* Timelapse Player Modal */}
+      {showTimelapse && timelapseFrames.length > 0 && (
+        <TimelapsePlayer
+          frames={timelapseFrames}
+          isOpen={showTimelapse}
+          onClose={() => setShowTimelapse(false)}
+          title="Time-Lapse Temporal"
+        />
+      )}
+
       <ChatPanel 
         isOpen={chatOpen}
-        onClose={() => setChatOpen(false)}
+        onClose={() => { setChatOpen(false); audioService.playPanelClose(); }}
         polygon={polygon}
         activeLayers={activeLayers}
         geojsonLayerData={geojsonLayerData}
         startDate={startDate}
         endDate={endDate}
       />
+
+      {/* Wind Map Modal */}
+      <WindMap 
+        isOpen={showWindMap}
+        onClose={() => { setShowWindMap(false); audioService.playPanelClose(); }}
+      />
       
-      {showTutorial && (
-        <BeeTutorial 
-          onComplete={() => setShowTutorial(false)}
-          onSkip={() => setShowTutorial(false)}
-        />
-      )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
-
-// Definições das camadas
-const layerDefs: Record<LayerType, { name: string; icon: string }> = {
-  SENTINEL2_RGB: { name: "Sentinel-2 (RGB)", icon: "icofont-satellite" },
-  LANDSAT_RGB: { name: "Landsat (RGB)", icon: "icofont-satellite-alt" },
-  SENTINEL1_VV: { name: "Sentinel-1 (Radar)", icon: "icofont-radar" },
-  NDVI: { name: "Vegetação (NDVI)", icon: "icofont-leaf" },
-  NDWI: { name: "Água (NDWI)", icon: "icofont-water-drop" },
-  LST: { name: "Temperatura (LST)", icon: "icofont-thermometer-alt" },
-  UHI: { name: "Ilha de Calor (UHI)", icon: "icofont-fire-burn" },
-  UTFVI: { name: "Variação Térmica (UTFVI)", icon: "icofont-chart-bar-graph" },
-  DEM: { name: "Elevação (DEM)", icon: "icofont-mountain" },
-};
